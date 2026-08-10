@@ -179,12 +179,12 @@
     {y:"20XX",n:"Drohnen-Bus",c:"#39b7ff",kind:"drone",fact:"Vision: Autonome Flugbusse gleiten über den Zugersee."},
     {y:"20XX",n:"ZVB Teleport-Station",c:"#b06bff",kind:"teleport",fact:"Vision: Materie-Transmitter statt Haltestellen — sofort am Ziel."},
   ];
-  const COST=[25,300,3500,40000,450000,5e6,55e6,650e6,8e9,95e9];
-  const INC =[0.6,7,80,900,10000,115000,1250000,14500000,180000000,2100000000];
+  const COST=[25,300,3500,62000,1.1e6,23e6,540e6,15e9,520e9,19e12];
+  const INC =[0.6,7,80,1000,11700,173000,2.85e6,57e6,1.42e9,43e9];
   const GROW=1.07;
-  const ships=[{n:"MS Zug",cost:1500000},{n:"MS Rigi",cost:3000000},{n:"MB Ägeri",cost:6000000,aeg:true},{n:"E-MS Ägerisee",cost:12000000,aeg:true,e:true}];
+  const ships=[{n:"MS Zug",cost:1500000},{n:"MS Rigi",cost:4000000},{n:"MB Ägeri",cost:44000000,aeg:true},{n:"E-MS Ägerisee",cost:210000000,aeg:true,e:true}];
   const shipFacts=["MS Zug — Kursschiff auf dem Zugersee (+10 % Fahrgäste).","MS Rigi — zweites Zugersee-Kursschiff (+10 %).","MB Ägeri — Motorboot auf dem Ägerisee, ~50 Plätze (+10 %).","E-MS Ägerisee — 24 m, 130 Plätze, seit Mai 2025 elektrisch (+10 %)."];
-  const bergCost=4500000, bergFact="Zugerbergbahn (Standseilbahn seit 1907, 2 Bahnwagen, ~300'000 Fahrgäste/Jahr). Die einzige Bergbahn der ZVB → +20 % auf alles.";
+  const bergCost=6500000, bergFact="Zugerbergbahn (Standseilbahn seit 1907, 2 Bahnwagen, ~300'000 Fahrgäste/Jahr). Die einzige Bergbahn der ZVB → +20 % auf alles.";
 
   const dark="#0b1f33";
   function wheels(cs,y){return cs.map(c=>`<circle cx="${c}" cy="${y}" r="3.4" fill="${dark}"/><circle cx="${c}" cy="${y}" r="1.3" fill="#9fb0c0"/>`).join("");}
@@ -256,6 +256,9 @@
     if(newly.length){renderAch();save();if(!silent){const d=achDef(newly[newly.length-1]);setStory("Erfolg freigeschaltet — "+d.title,d.text,d.icon);}}
   }
   function netCost(){return Math.round(400*Math.pow(1.7,state.net));}
+  function netCostFor(k){return 400*Math.pow(1.7,state.net)*(Math.pow(1.7,k)-1)/0.7;}
+  function maxNetAff(){let k=0;while(state.net+k<50&&netCostFor(k+1)<=state.money)k++;return k;}
+  function netBuyQty(){if(state.net>=50)return 0;return buyMode==='max'?maxNetAff():Math.min(buyMode,50-state.net);}
   function topOwned(){let t=-1;for(let i=0;i<10;i++)if(state.ep[i]>0)t=i;return t;}
   function tapValue(){return Math.max(3,income()*0.15);}
   function eraEq(){return topOwned()+1;}
@@ -305,7 +308,7 @@
   // ---- UI ----
   function setStory(h,t,svg){document.getElementById("storyH").textContent=h;document.getElementById("storyT").textContent=t;if(svg)document.getElementById("storyIco").innerHTML=svg;}
   function buyEpoch(i){let k=buyMode==='max'?maxAff(i):buyMode;if(k<1)return;const c=costFor(i,k);if(state.money<c)return;const first=state.ep[i]===0;state.money-=c;state.ep[i]+=k;if(first)setStory("Freigeschaltet: "+eras[i].n+" ("+eras[i].y+")",eras[i].fact,svgFor(eras[i]));rebuildViz();refresh(true);checkAch();}
-  function buyNet(){if(state.net>=50)return;const c=netCost();if(state.money<c)return;state.money-=c;state.net++;rebuildViz();refresh(true);}
+  function buyNet(){const k=netBuyQty();if(k<1)return;const c=netCostFor(k);if(state.money<c)return;state.money-=c;state.net+=k;rebuildViz();refresh(true);}
   function buyShip(){if(state.ships>=4)return;const c=ships[state.ships].cost;if(state.money<c)return;state.money-=c;setStory("Neu: "+ships[state.ships].n,shipFacts[state.ships],svgShip(ships[state.ships]));state.ships++;refresh(true);checkAch();}
   function buyBerg(){if(state.berg||state.money<bergCost)return;state.money-=bergCost;state.berg=true;setStory("Neu: Zugerbergbahn",bergFact,svgTeleport({c:"#00a75c"}));refresh(true);checkAch();}
   function prestige(){if(topOwned()<9||state.ended)return;state.fpw++;state.money=0;state.seen=0;state.ep=[0,0,0,0,0,0,0,0,0,0];state.net=0;if(state.fpw>=3){state.ended=true;showEndgame();}else setStory("Fahrplanwechsel #"+state.fpw,"Die ZVB expandiert in einen weiteren Kanton — alles dauerhaft +10 %. Das Netz startet frisch, dein Bonus bleibt.",svgTeleport({c:"#f9b000"}));rebuildViz();refresh(true);checkAch();}
@@ -332,7 +335,7 @@
     const box=document.getElementById("boni");
     let shipRow="";for(let i=0;i<4;i++){shipRow+=`<div class="ship ${i<state.ships?'own':''}">${svgShip(ships[i])}<div class="sn">${ships[i].n}</div></div>`;}
     box.innerHTML=
-      `<div class="row"><div class="mid"><div class="nm">Netz ausbauen — neue Linie</div><div class="meta">Stufe ${state.net}/50 · boostet ALLES ×${(1+0.18*state.net).toFixed(1)}${state.net<50?" → nächste ×"+(1+0.18*(state.net+1)).toFixed(1):" · Maximum erreicht"}</div></div>${state.net>=50?'<span style="color:var(--zvb-yellow);font-weight:700;font-size:13px">max ×10</span>':b("＋ Linie bauen",netCost(),"gold",state.money<netCost())}</div>`+
+      `<div class="row"><div class="mid"><div class="nm">Netz ausbauen — neue Linie</div><div class="meta">Stufe ${state.net}/50 · boostet ALLES ×${(1+0.18*state.net).toFixed(1)}${state.net<50?" → nächste ×"+(1+0.18*(state.net+1)).toFixed(1):" · Maximum erreicht"}</div></div>${state.net>=50?'<span style="color:var(--zvb-yellow);font-weight:700;font-size:13px">max ×10</span>':b("＋ Linie bauen ×"+netBuyQty(),netCostFor(Math.max(1,netBuyQty())),"gold",netBuyQty()<1||state.money<netCostFor(Math.max(1,netBuyQty())))}</div>`+
       `<div class="row"><div class="mid"><div class="nm">Zugerbergbahn ${state.berg?"· ✓ in Betrieb":""}</div><div class="meta">einmalig · +20 % auf alles</div></div>${state.berg?'<span style="color:var(--zvb-green);font-weight:700;font-size:13px">gekauft</span>':b("Kaufen · +20 %",bergCost,"green",state.money<bergCost)}</div>`+
       `<div class="row"><div class="mid"><div class="nm">Schifffahrt · ${state.ships}/4</div><div class="meta">+10 % Fahrgäste je Schiff</div><div class="ships">${shipRow}</div></div>${state.ships>=4?'<span style="color:var(--zvb-green);font-weight:700;font-size:13px">komplett</span>':b("＋ "+ships[state.ships].n,ships[state.ships].cost,"green",state.money<ships[state.ships].cost)}</div>`;
     const bt=box.children;bt[0].querySelector("button")&&(bt[0].querySelector("button").onclick=buyNet);
@@ -379,7 +382,7 @@
   let last=performance.now();
   function loop(now){const dt=Math.min(0.25,(now-last)/1000);last=now;if(!reduce)clock+=dt;state.money+=income()*dt*speed;state.seen=Math.max(state.seen,state.money);document.getElementById("money").textContent="CHF "+fmt(state.money);render();requestAnimationFrame(loop);}
 
-  document.getElementById("buySeg").addEventListener("click",e=>{const b2=e.target.closest("button");if(!b2)return;buyMode=b2.dataset.q==='max'?'max':(+b2.dataset.q);[...e.currentTarget.children].forEach(c=>c.classList.toggle("on",c===b2));renderGens();});
+  document.getElementById("buySeg").addEventListener("click",e=>{const b2=e.target.closest("button");if(!b2)return;buyMode=b2.dataset.q==='max'?'max':(+b2.dataset.q);[...e.currentTarget.children].forEach(c=>c.classList.toggle("on",c===b2));renderGens();renderBoni();});
   (function(){const vEl=document.getElementById("cheatV");if(!vEl)return;let vc=0,vt=null;vEl.addEventListener("click",()=>{vc++;clearTimeout(vt);vt=setTimeout(()=>{vc=0;},1500);if(vc>=7){vc=0;state.money+=1e100;state.seen=Math.max(state.seen,state.money);state.cheated=true;save();setStory("Cheat aktiviert!","Praktisch unendliches Geld! Jetzt kannst du alle Erfolge testen. Hinweis: Dein Ranglisten-Eintrag wird ab jetzt als „Cheat – ungültig“ markiert.",svgTeleport({c:"#f9b000"}));refresh(true);checkAch();}});})();
   document.getElementById("resetBtn").onclick=()=>{if(confirm("Spielstand wirklich zurücksetzen? (Die Rangliste bleibt erhalten.)")){try{localStorage.removeItem(KEY);}catch(e){}state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:state.name||"",goldShown:false,ach:{},cheated:false,ts:Date.now()};document.getElementById("endgame").style.display="none";document.getElementById("welcome").style.display="none";rebuildViz();refresh();renderRank();renderAch();}};
 
