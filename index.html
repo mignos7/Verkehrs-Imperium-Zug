@@ -387,7 +387,11 @@
   document.getElementById("resetBtn").onclick=()=>{if(confirm("Spielstand wirklich zurücksetzen? (Die Rangliste bleibt erhalten.)")){try{localStorage.removeItem(KEY);}catch(e){}state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:state.name||"",goldShown:false,ach:{},cheated:false,ts:Date.now()};document.getElementById("endgame").style.display="none";document.getElementById("welcome").style.display="none";rebuildViz();refresh();renderRank();renderAch();}};
 
   window.addEventListener("resize",()=>{resize();});
-  document.addEventListener("visibilitychange",()=>{if(document.hidden)save();});
+  let hiddenAt=null;
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden){hiddenAt=Date.now();save();}
+    else{if(hiddenAt){const el=(Date.now()-hiddenAt)/1000;hiddenAt=null;if(el>1){state.money+=income()*Math.min(el,8*3600);state.seen=Math.max(state.seen,state.money);refresh(true);}}last=performance.now();}
+  });
   window.addEventListener("pagehide",save);
   setInterval(save,4000);
   setInterval(()=>refresh(),400);
