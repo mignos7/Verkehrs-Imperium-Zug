@@ -1,0 +1,354 @@
+<style>
+  :root{
+    --stage:#071627; --stage-2:#0a2036; --panel:#0d2540; --panel-2:#123253;
+    --edge:rgba(255,255,255,.09); --edge-strong:rgba(255,255,255,.16);
+    --ink:#eaf2fa; --muted:#8ba6c2; --muted-2:#5f7c9b;
+    --zvb-blue:#2b7fc4; --zvb-blue-deep:#004986; --zvb-blue-2:#00549d;
+    --zvb-yellow:#f9b000; --zvb-green:#00a75c;
+    --radius:14px;
+    --font:"Helvetica Neue",Arial,"Segoe UI",system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px 64px;font-family:var(--font);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .page{background:var(--stage)}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px;margin:0 -20px 0;position:sticky;top:0;z-index:20;background:linear-gradient(180deg,var(--zvb-blue-deep),#003a6b);border-bottom:3px solid var(--zvb-yellow)}
+  .brand{display:flex;align-items:center;gap:12px;min-width:0}
+  .logo{font-weight:800;letter-spacing:.5px;font-size:24px;line-height:1;color:#fff;padding:6px 10px;border:2px solid #fff;border-radius:6px}
+  .brand .tt b{display:block;font-size:14px;color:#fff;font-weight:700}
+  .brand .tt span{font-size:10.5px;color:#cfe2f4;letter-spacing:.14em;text-transform:uppercase}
+  .counter{text-align:right;line-height:1.15}
+  .counter .val{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--zvb-yellow);font-variant-numeric:tabular-nums}
+  .counter .inc{font-size:12px;color:#a9cdec;font-family:var(--mono)}
+
+  .welcome{margin:14px 0 0;padding:12px 16px;background:var(--panel-2);border:1px solid var(--zvb-yellow);border-radius:12px;font-size:14px;display:none}
+  .welcome b{color:var(--zvb-yellow)}
+
+  .stage-shell{position:relative;border-radius:var(--radius);overflow:hidden;background:radial-gradient(120% 120% at 30% 0%,var(--stage-2),var(--stage) 70%);border:1px solid var(--edge);margin-top:14px;box-shadow:0 20px 50px -30px #000;cursor:pointer;user-select:none}
+  canvas{display:block;width:100%;height:auto;touch-action:manipulation}
+  .stage-badge{position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:10px;background:rgba(7,22,39,.72);border:1px solid var(--edge-strong);border-radius:12px;padding:9px 12px;max-width:70%}
+  .epo-num{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--zvb-yellow)}
+  .epo-badge-ico{width:42px;height:28px;flex:0 0 auto}
+  .epo-meta .nm{font-size:15px;font-weight:700;line-height:1.15}
+  .epo-meta .ds{font-size:12px;color:var(--muted);line-height:1.25}
+  .tap-hint{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:12.5px;color:var(--muted);pointer-events:none}
+  .stage-stats{position:absolute;right:12px;top:12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .chip{background:rgba(7,22,39,.72);border:1px solid var(--edge-strong);border-radius:10px;padding:6px 10px;text-align:right;min-width:80px}
+  .chip .k{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-2)}
+  .chip .v{font-family:var(--mono);font-size:14px;font-weight:700}
+  .float{position:absolute;pointer-events:none;font-family:var(--mono);font-weight:700;color:var(--zvb-yellow);font-size:15px;text-shadow:0 1px 3px #000;animation:fl .8s ease-out forwards}
+  @keyframes fl{from{transform:translateY(0);opacity:1}to{transform:translateY(-38px);opacity:0}}
+
+  .story{display:flex;gap:12px;align-items:flex-start;margin:12px 0 2px;padding:12px 15px;background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--edge);border-left:3px solid var(--zvb-yellow);border-radius:12px}
+  .story .st-ico{width:38px;height:26px;flex:0 0 auto;margin-top:2px}
+  .story .st-h{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--zvb-yellow);font-weight:700;margin:0 0 3px}
+  .story .st-t{font-size:13.5px;line-height:1.5;margin:0}
+
+  .sec-h{font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:26px 0 10px;font-weight:700}
+  .row{display:flex;align-items:center;gap:12px;padding:11px 13px;background:var(--panel);border:1px solid var(--edge);border-radius:12px;margin-bottom:8px}
+  .row .ic{width:50px;height:31px;flex:0 0 auto}
+  .row .mid{flex:1;min-width:0}
+  .row .nm{font-size:14.5px;font-weight:700;line-height:1.2}
+  .row .meta{font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+  .row .cnt{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--ink);min-width:34px;text-align:center}
+  .buy{appearance:none;border:1px solid var(--edge-strong);background:var(--zvb-blue-deep);color:#fff;font-family:var(--font);font-weight:700;font-size:13px;padding:10px 13px;border-radius:10px;cursor:pointer;min-width:118px;text-align:center;transition:background .12s,transform .05s}
+  .buy .c{display:block;font-family:var(--mono);font-size:12px;font-weight:600;color:#bcd8f2;margin-top:2px}
+  .buy:hover:not(:disabled){background:var(--zvb-blue-2)}
+  .buy:active:not(:disabled){transform:scale(.97)}
+  .buy:disabled{opacity:.4;cursor:not-allowed}
+  .buy.gold{background:var(--zvb-yellow);color:#071627}.buy.gold .c{color:#5a4200}
+  .buy.green{background:var(--zvb-green);color:#04231a}.buy.green .c{color:#0a4a30}
+  .row.teaser{border-style:dashed;border-color:var(--zvb-yellow)}
+  .row.teaser .ic,.row.teaser .nm{filter:blur(4px)}
+  .row.teaser .tflag{font-size:10px;color:var(--zvb-yellow);font-weight:700}
+  .ships{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+  .ship{border:1px solid var(--edge);border-radius:9px;padding:5px;text-align:center;opacity:.4;min-width:52px}
+  .ship.own{opacity:1;border-color:var(--zvb-green)}
+  .ship svg{width:34px;height:20px}.ship .sn{font-size:9px;color:var(--muted);line-height:1.1}
+
+  .testbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding:10px 13px;background:var(--panel);border:1px dashed var(--edge-strong);border-radius:12px;font-size:12.5px;color:var(--muted)}
+  .seg{display:inline-flex;border:1px solid var(--edge-strong);border-radius:8px;overflow:hidden}
+  .seg button{appearance:none;background:transparent;color:var(--ink);border:0;padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer}
+  .seg button.on{background:var(--zvb-yellow);color:#071627;font-weight:700}
+  .lnk{background:none;border:0;color:var(--muted-2);text-decoration:underline;cursor:pointer;font-size:12px;font-family:var(--font)}
+
+  .endgame{margin-top:14px;padding:20px;background:linear-gradient(160deg,#12335a,#0a1f38);border:1px solid var(--zvb-yellow);border-radius:14px;display:none}
+  .endgame h3{margin:0 0 6px;font-size:19px;color:var(--zvb-yellow)}
+  .endgame p{margin:0 0 12px;font-size:13.5px;color:var(--muted)}
+  .lb{list-style:none;padding:0;margin:12px 0 0}
+  .lb li{display:flex;justify-content:space-between;gap:10px;padding:8px 11px;border-radius:8px;background:var(--panel);margin-bottom:6px;font-size:13.5px}
+  .lb li.me{background:var(--zvb-blue-deep);border:1px solid var(--zvb-yellow)}
+  .lb .rk{font-family:var(--mono);color:var(--muted);width:24px}.lb .nm{flex:1;font-weight:600}.lb .sc{font-family:var(--mono);color:var(--zvb-yellow)}
+  .name-row{display:flex;gap:8px}.name-row input{flex:1;background:var(--stage);border:1px solid var(--edge-strong);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:14px}
+  .buymode{display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:13px;color:var(--muted)}
+  .rankctrl{display:flex;gap:8px;margin-bottom:8px}
+  .rankctrl input{flex:1;min-width:0;background:var(--stage);border:1px solid var(--edge-strong);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:14px}
+  .rankctrl input:focus-visible{outline:3px solid var(--zvb-yellow);outline-offset:2px}
+  .shareout textarea{width:100%;height:50px;background:var(--stage);border:1px solid var(--edge-strong);color:var(--zvb-yellow);border-radius:10px;padding:8px 10px;font-family:var(--mono);font-size:12px;resize:none;margin-bottom:10px}
+  footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--edge);font-size:12px;color:var(--muted-2);line-height:1.6}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  @media (max-width:560px){.logo{font-size:20px}.brand .tt span{display:none}.buy{min-width:96px}}
+</style>
+
+<div class="page">
+<div class="topbar">
+  <div class="brand"><span class="logo">ZVB</span><span class="tt"><b>Verkehrs-Imperium Zug</b><span>Wir bewegen Zug</span></span></div>
+  <div class="counter"><div class="val" id="money">CHF 0</div><div class="inc" id="inc">+0 /s</div></div>
+</div>
+
+<div class="wrap">
+  <h2 class="sr-only">Spielbares ZVB-Idle-Game „Verkehrs-Imperium Zug": tippe auf die Karte, um Fahrgäste zu befördern, kaufe Fahrzeuge, baue das Liniennetz aus und steige durch die ZVB-Epochen auf.</h2>
+
+  <div class="welcome" id="welcome"></div>
+
+  <div class="stage-shell" id="stage">
+    <canvas id="net" aria-label="ZVB-Liniennetz — auf die Karte tippen um Fahrgäste zu befördern"></canvas>
+    <div class="stage-badge">
+      <span class="epo-num" id="epoNum">–</span>
+      <span class="epo-badge-ico" id="epoIco"></span>
+      <div class="epo-meta"><div class="nm" id="epoName">Noch kein Fahrzeug</div><div class="ds" id="epoDesc">Tippe auf die Karte</div></div>
+    </div>
+    <div class="stage-stats">
+      <div class="chip"><div class="k">Linien</div><div class="v" id="stLines">0</div></div>
+      <div class="chip"><div class="k">Boost</div><div class="v" id="stBoost">×1.0</div></div>
+    </div>
+    <div class="tap-hint" id="tapHint">Tippe auf die Karte → Fahrgäste befördern &amp; CHF verdienen</div>
+  </div>
+
+  <div class="testbar">
+    <span>Test-Tempo:</span>
+    <span class="seg" id="speedSeg"><button data-s="1" class="on">1× (echt)</button><button data-s="5">5×</button><button data-s="25">25×</button></span>
+    <span style="margin-left:auto"></span>
+    <button class="lnk" id="resetBtn">Spielstand zurücksetzen (Test)</button>
+  </div>
+
+  <div class="story">
+    <span class="st-ico" id="storyIco"></span>
+    <div><p class="st-h" id="storyH">ZVB-Wissen</p><p class="st-t" id="storyT">Willkommen! Tippe auf die Karte und kaufe deine erste Postkutsche, um das Verkehrs-Imperium Zug aufzubauen.</p></div>
+  </div>
+
+  <h3 class="sec-h">Linien &amp; Fahrzeuge</h3>
+  <div class="buymode">Kaufmenge: <span class="seg" id="buySeg"><button data-q="1" class="on">1×</button><button data-q="5">5×</button><button data-q="10">10×</button><button data-q="max">MAX</button></span></div>
+  <div id="gens"></div>
+
+  <h3 class="sec-h">Netz &amp; Boni</h3>
+  <div id="boni"></div>
+
+  <h3 class="sec-h">Fahrplanwechsel — Prestige</h3>
+  <div id="prestige"></div>
+
+  <h3 class="sec-h">Rangliste — mit Kollegen teilen</h3>
+  <p class="sec-sub">Kein Server nötig: Teile deinen Punktestand (Peak-Umsatz) als Code. Deine Kollegen fügen ihn ein — und du ihre — dann seht ihr alle in einer Tabelle.</p>
+  <div id="rank"></div>
+
+  <div class="endgame" id="endgame"></div>
+
+  <footer>
+    Spielbares MVP von „Verkehrs-Imperium Zug" · ZVB-Design, Karte stilisiert nach dem echten Linienplan. Fakten aus dem ZVB-Geschäftsbericht 2024.
+    Kaufpreise sind für den Spielfluss balanciert (an den realen Werten orientiert). Fortschritt wird lokal im Browser gespeichert; jeder Tester hat seinen eigenen Spielstand.
+  </footer>
+</div>
+</div>
+
+<script>
+(function(){
+  const eras=[
+    {y:"1852",n:"Postkutsche",c:"#a06a34",kind:"coach",fact:"1852 fuhr die erste Postkutsche von Zug über Ägeri nach Sattel — der Beginn des öV im Kanton Zug."},
+    {y:"1913",n:"Strassenbahn",c:"#f9b000",kind:"tram",fact:"1913 eröffnete die ESZ drei Überland-Tramlinien ab Zug (bis 1955 im Einsatz)."},
+    {y:"1953",n:"Dieselbus",c:"#e6ddc4",kind:"bus",fact:"1953 ersetzten Dieselbusse (Saurer/Berna) das Tram. Seit 1951 heisst das Unternehmen „Zugerland Verkehrsbetriebe“."},
+    {y:"1978",n:"FBW Gelenkbus",c:"#c7d2dc",kind:"artic",fact:"Ab 1978 verstärkten neun FBW-Gelenkbusse (280 PS) die Hauptlinien."},
+    {y:"2001",n:"Citaro Niederflur",c:"#9db6cf",kind:"bus",stripe:"#00549d",fact:"Ab 2001 kamen klimatisierte Mercedes-Benz Citaro Niederflurbusse — barrierefreier Einstieg."},
+    {y:"2019",n:"E-Bus",c:"#00a75c",kind:"bus",e:true,fact:"2019 erster E-Bus. 2024 fuhren 26 E-Busse 1,39 Mio. km lokal emissionsfrei."},
+    {y:"2024",n:"E-Gelenkbus",c:"#1ed17f",kind:"artic",e:true,fact:"Seit 2024 E-Gelenkbusse. 2024 beförderte die ZVB 20,44 Mio. Fahrgäste (+6 %). Ziel: CO₂-neutral bis 2035."},
+    {y:"20XX",n:"Fusionsreaktor-Bus",c:"#ff7a1a",kind:"fusion",fact:"Vision: Bus mit Mini-Fusionsreaktor — praktisch unbegrenzte Reichweite."},
+    {y:"20XX",n:"Drohnen-Bus",c:"#39b7ff",kind:"drone",fact:"Vision: Autonome Flugbusse gleiten über den Zugersee."},
+    {y:"20XX",n:"ZVB Teleport-Station",c:"#b06bff",kind:"teleport",fact:"Vision: Materie-Transmitter statt Haltestellen — sofort am Ziel."},
+  ];
+  const COST=[25,300,3500,40000,450000,5e6,55e6,650e6,8e9,95e9];
+  const INC =[0.6,7,80,900,10000,115000,1250000,14500000,180000000,2100000000];
+  const GROW=1.07;
+  const ships=[{n:"MS Zug",cost:1500000},{n:"MS Rigi",cost:3000000},{n:"MB Ägeri",cost:6000000,aeg:true},{n:"E-MS Ägerisee",cost:12000000,aeg:true,e:true}];
+  const shipFacts=["MS Zug — Kursschiff auf dem Zugersee (+10 % Fahrgäste).","MS Rigi — zweites Zugersee-Kursschiff (+10 %).","MB Ägeri — Motorboot auf dem Ägerisee, ~50 Plätze (+10 %).","E-MS Ägerisee — 24 m, 130 Plätze, seit Mai 2025 elektrisch (+10 %)."];
+  const bergCost=4500000, bergFact="Zugerbergbahn (Standseilbahn seit 1907, 2 Bahnwagen, ~300'000 Fahrgäste/Jahr). Die einzige Bergbahn der ZVB → +20 % auf alles.";
+
+  const dark="#0b1f33";
+  function wheels(cs,y){return cs.map(c=>`<circle cx="${c}" cy="${y}" r="3.4" fill="${dark}"/><circle cx="${c}" cy="${y}" r="1.3" fill="#9fb0c0"/>`).join("");}
+  function svgBus(e){return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 30"><rect x="3" y="6" width="42" height="15" rx="4" fill="${e.c}"/><rect x="6" y="9" width="26" height="6.4" rx="1.5" fill="${dark}" opacity="0.5"/><rect x="34.5" y="9" width="7.5" height="6.4" rx="1.5" fill="${dark}" opacity="0.3"/>${e.stripe?`<rect x="3" y="17" width="42" height="2.4" fill="${e.stripe}"/>`:""}${e.e?`<path d="M25 15 l-3 4 h2.2 l-1 3 4-5 h-2.2z" fill="${dark}" opacity="0.5"/>`:""}${wheels([13,35],24)}</svg>`;}
+  function svgArtic(e){return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 54 30"><rect x="2" y="6" width="24" height="15" rx="4" fill="${e.c}"/><rect x="22" y="7" width="6" height="13" fill="${dark}" opacity="0.45"/><rect x="28" y="6" width="24" height="15" rx="4" fill="${e.c}"/><rect x="5" y="9" width="15" height="6.2" rx="1.5" fill="${dark}" opacity="0.5"/><rect x="31" y="9" width="17" height="6.2" rx="1.5" fill="${dark}" opacity="0.5"/>${e.e?`<path d="M13 16 l-2.4 3.4 h1.8 l-.8 2.6 3.4-4.2 h-1.8z" fill="${dark}" opacity="0.5"/>`:""}${wheels([9,27,45],24)}</svg>`;}
+  function svgTram(e){return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 30"><path d="M24 6 L24 2 M20 1.5 L28 3.5" stroke="${dark}" stroke-width="1.2" fill="none"/><rect x="4" y="6" width="40" height="15" rx="3" fill="${e.c}"/><rect x="7" y="9" width="13" height="6.4" rx="1.4" fill="${dark}" opacity="0.5"/><rect x="21" y="9" width="9" height="6.4" rx="1.4" fill="${dark}" opacity="0.5"/><rect x="31" y="9" width="10" height="6.4" rx="1.4" fill="${dark}" opacity="0.5"/>${wheels([13,35],24)}</svg>`;}
+  function svgCoach(e){return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 30"><line x1="2" y1="17" x2="11" y2="14" stroke="${dark}" stroke-width="1.6"/><rect x="11" y="6" width="24" height="12" rx="3" fill="${e.c}"/><rect x="15" y="8.5" width="7" height="5" rx="1" fill="${dark}" opacity="0.45"/><rect x="24" y="8.5" width="7" height="5" rx="1" fill="${dark}" opacity="0.45"/><circle cx="17" cy="22" r="5.6" fill="none" stroke="${dark}" stroke-width="1.8"/><circle cx="32" cy="22" r="5.6" fill="none" stroke="${dark}" stroke-width="1.8"/></svg>`;}
+  function svgFusion(e){return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 30"><rect x="3" y="6" width="42" height="15" rx="5" fill="#28323e"/><rect x="6" y="9" width="20" height="6.4" rx="1.5" fill="${dark}" opacity="0.7"/><circle cx="36" cy="13.5" r="5.2" fill="none" stroke="${e.c}" stroke-width="1.8"/><circle cx="36" cy="13.5" r="1.9" fill="${e.c}"/><circle cx="36" cy="6.5" r="1.2" fill="${e.c}"/><circle cx="30.4" cy="17" r="1.2" fill="${e.c}"/><circle cx="41.6" cy="17" r="1.2" fill="${e.c}"/>${wheels([13,35],24)}</svg>`;}
+  function svgDrone(e){return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 34"><g stroke="${dark}" stroke-width="1.3"><line x1="18" y1="16" x2="9" y2="8"/><line x1="30" y1="16" x2="39" y2="8"/><line x1="18" y1="16" x2="9" y2="24"/><line x1="30" y1="16" x2="39" y2="24"/></g><ellipse cx="9" cy="8" rx="6" ry="1.7" fill="${dark}" opacity="0.55"/><ellipse cx="39" cy="8" rx="6" ry="1.7" fill="${dark}" opacity="0.55"/><rect x="12" y="11" width="24" height="12" rx="6" fill="${e.c}"/><rect x="15" y="14" width="14" height="5.4" rx="1.6" fill="${dark}" opacity="0.5"/></svg>`;}
+  function svgTeleport(e){return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 34"><ellipse cx="20" cy="30" rx="14" ry="3" fill="${e.c}" opacity="0.28"/><ellipse cx="20" cy="18" rx="11" ry="13" fill="none" stroke="${e.c}" stroke-width="2.2"/><ellipse cx="20" cy="18" rx="6" ry="8" fill="none" stroke="${e.c}" stroke-width="1.5" opacity="0.7"/><circle cx="20" cy="18" r="2.6" fill="#fff"/></svg>`;}
+  function svgShip(e){const hull=e.e?"#0e6a49":"#12456b",cab=e.e?"#d8f2e6":"#eef3f7";return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 24"><path d="M3 13 h38 l-5 7 h-28 z" fill="${hull}"/><rect x="12" y="5" width="20" height="9" rx="1.5" fill="${cab}"/><rect x="14" y="7" width="16" height="4.5" fill="${dark}" opacity="0.45"/>${e.e?`<path d="M35 6 l-2.4 3.4 h1.8 l-.8 2.6 3.4-4.2 h-1.8z" fill="${dark}" opacity="0.55"/>`:`<path d="M23 1 h6 v3 h-6z" fill="#f9b000"/>`}</svg>`;}
+  function svgFor(e){return e.kind==="coach"?svgCoach(e):e.kind==="tram"?svgTram(e):e.kind==="artic"?svgArtic(e):e.kind==="fusion"?svgFusion(e):e.kind==="drone"?svgDrone(e):e.kind==="teleport"?svgTeleport(e):svgBus(e);}
+  const toImg=s=>{const i=new Image();i.src="data:image/svg+xml;utf8,"+encodeURIComponent(s);return i;};
+  const imgs=eras.map(e=>toImg(svgFor(e)));
+  const shipImg=toImg(svgShip({e:false})),eShipImg=toImg(svgShip({e:true}));
+
+  // geography (stilisiert nach ZVB-Linienplan)
+  const P={Zug:[0.44,0.40],Baar:[0.55,0.24],"Blickensdorf":[0.50,0.17],"Lättich":[0.61,0.30],Steinhausen:[0.36,0.29],Cham:[0.24,0.37],"Oberrüti":[0.05,0.30],Rotkreuz:[0.10,0.45],"Hünenberg":[0.19,0.53],Oberwil:[0.35,0.57],Walchwil:[0.47,0.82],"Arth-Goldau":[0.42,0.94],Zugerberg:[0.54,0.53],Menzingen:[0.67,0.36],Neuheim:[0.64,0.20],Obersack:[0.79,0.26],Sihlbrugg:[0.64,0.11],"Hausen am Albis":[0.77,0.09],"Unterägeri":[0.76,0.53],"Oberägeri":[0.87,0.47],Raten:[0.95,0.60]};
+  const stations=["Zug","Baar","Blickensdorf","Lättich","Steinhausen","Cham","Oberrüti","Rotkreuz","Hünenberg","Oberwil","Walchwil","Arth-Goldau","Menzingen","Neuheim","Obersack","Sihlbrugg","Hausen am Albis","Unterägeri","Oberägeri","Raten"];
+  const nodeEra={Zug:1,Baar:1,Cham:1,Rotkreuz:1,"Unterägeri":1,"Oberägeri":1,Menzingen:2,"Blickensdorf":2,Steinhausen:3,Walchwil:3,Oberwil:3,Neuheim:4,"Lättich":4,"Hünenberg":5,Obersack:5,Sihlbrugg:6,"Arth-Goldau":6,Raten:7,"Hausen am Albis":8,"Oberrüti":9};
+  const LC={red:"#e2231a",blue:"#0069b4",green:"#00963f",orange:"#f39200",purple:"#7d3f98",teal:"#00a2a0",magenta:"#e6007e",brown:"#8c6239",cyan:"#29abe2",navy:"#1d3f8f",pink:"#ec6ea0",lime:"#95c11f",olive:"#7a8b1f",rose:"#c0392b"};
+  const LINES=[{c:LC.red,s:["Rotkreuz","Cham","Zug","Baar"],e:1},{c:LC.blue,s:["Oberägeri","Unterägeri","Zug"],e:1},{c:LC.green,s:["Zug","Baar","Menzingen"],e:2},{c:LC.orange,s:["Cham","Steinhausen","Zug"],e:3},{c:LC.purple,s:["Zug","Walchwil"],e:3},{c:LC.teal,s:["Menzingen","Neuheim","Baar"],e:4},{c:LC.magenta,s:["Rotkreuz","Hünenberg","Cham"],e:5},{c:LC.brown,s:["Zug","Hünenberg"],e:5},{c:LC.cyan,s:["Zug","Menzingen","Oberägeri"],e:6},{c:LC.navy,s:["Baar","Steinhausen","Cham"],e:6},{c:LC.pink,s:["Unterägeri","Menzingen"],e:7},{c:LC.lime,s:["Zug","Neuheim"],e:7},{c:LC.orange,s:["Baar","Blickensdorf"],e:2},{c:LC.olive,s:["Zug","Oberwil","Walchwil"],e:3},{c:LC.pink,s:["Baar","Lättich","Menzingen"],e:4},{c:LC.green,s:["Menzingen","Obersack","Neuheim"],e:5},{c:LC.brown,s:["Walchwil","Arth-Goldau"],e:6},{c:LC.navy,s:["Baar","Sihlbrugg"],e:6},{c:LC.purple,s:["Oberägeri","Raten"],e:7},{c:LC.cyan,s:["Sihlbrugg","Hausen am Albis"],e:8},{c:LC.red,s:["Cham","Oberrüti"],e:9},{c:LC.teal,s:["Rotkreuz","Oberrüti"],e:9}];
+  const EXTRA=[{c:LC.olive,s:["Walchwil","Zug","Baar"]},{c:LC.rose,s:["Hünenberg","Steinhausen","Baar"]},{c:LC.cyan,s:["Cham","Hünenberg","Zug"]},{c:LC.orange,s:["Neuheim","Menzingen","Unterägeri"]},{c:LC.teal,s:["Rotkreuz","Cham","Steinhausen"]},{c:LC.magenta,s:["Walchwil","Zug","Unterägeri"]},{c:LC.green,s:["Oberägeri","Menzingen","Baar"]},{c:LC.navy,s:["Zug","Cham","Hünenberg","Rotkreuz"]},{c:LC.pink,s:["Neuheim","Baar","Zug"]},{c:LC.purple,s:["Unterägeri","Oberägeri","Menzingen"]},{c:LC.red,s:["Walchwil","Zug","Cham"]},{c:LC.lime,s:["Steinhausen","Zug","Menzingen"]},{c:LC.blue,s:["Rotkreuz","Hünenberg","Zug"]},{c:LC.orange,s:["Cham","Zug","Menzingen"]},{c:LC.teal,s:["Baar","Zug","Unterägeri"]},{c:LC.magenta,s:["Steinhausen","Baar","Neuheim"]},{c:LC.green,s:["Cham","Steinhausen","Baar"]},{c:LC.pink,s:["Zug","Baar","Neuheim"]},{c:LC.navy,s:["Walchwil","Zug","Menzingen"]},{c:LC.red,s:["Rotkreuz","Cham","Zug","Baar"]},{c:LC.cyan,s:["Menzingen","Oberägeri","Unterägeri"]},{c:LC.olive,s:["Hünenberg","Cham","Steinhausen"]},{c:LC.purple,s:["Zug","Menzingen","Neuheim"]},{c:LC.lime,s:["Unterägeri","Zug","Cham"]},{c:LC.rose,s:["Baar","Menzingen","Oberägeri"]},{c:LC.blue,s:["Walchwil","Zug","Steinhausen"]},{c:LC.orange,s:["Rotkreuz","Hünenberg","Cham","Steinhausen"]},{c:LC.teal,s:["Zug","Unterägeri","Oberägeri"]},{c:LC.magenta,s:["Neuheim","Baar","Steinhausen","Zug"]},{c:LC.green,s:["Menzingen","Baar","Zug"]},{c:LC.navy,s:["Oberägeri","Unterägeri","Menzingen","Baar"]},{c:LC.pink,s:["Cham","Zug","Walchwil"]},{c:LC.red,s:["Hünenberg","Zug","Baar"]},{c:LC.cyan,s:["Steinhausen","Zug","Unterägeri"]},{c:LC.lime,s:["Rotkreuz","Cham","Hünenberg"]},{c:LC.purple,s:["Baar","Neuheim","Menzingen","Oberägeri"]},{c:LC.orange,s:["Oberwil","Cham","Rotkreuz"]},{c:LC.teal,s:["Arth-Goldau","Walchwil","Zug"]},{c:LC.pink,s:["Lättich","Neuheim","Obersack"]},{c:LC.navy,s:["Sihlbrugg","Baar","Zug"]},{c:LC.green,s:["Raten","Oberägeri","Unterägeri"]},{c:LC.purple,s:["Oberrüti","Cham","Hünenberg"]},{c:LC.red,s:["Blickensdorf","Baar","Lättich"]},{c:LC.cyan,s:["Hausen am Albis","Sihlbrugg","Neuheim"]}];
+  LINES.forEach((l,i)=>l.off=((i%5)-2)); EXTRA.forEach((l,i)=>l.off=(((i+4)%9)-4));
+  const speedByEra=[0,0.05,0.08,0.10,0.115,0.13,0.15,0.17,0.20,0.26,0.30];
+  const lakeZug={cx:0.34,cy:0.66,rx:0.20,ry:0.105,rot:-0.5},lakeAeg={cx:0.80,cy:0.62,rx:0.10,ry:0.055,rot:-0.2},lakeVier={cx:0.05,cy:0.90,rx:0.13,ry:0.07,rot:0.35};
+
+  // ---- state ----
+  const KEY="vimpZug_v1";
+  let state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:"",goldShown:false,ts:Date.now()};
+  let speed=1, buyMode=1, veh=[], clock=0, pulses=[], floats=[];
+  try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);Object.assign(state,s);}}catch(e){}
+
+  function boost(){return (1+0.18*state.net)*(state.berg?1.2:1)*(1+0.1*state.ships)*(1+0.1*state.fpw);}
+  function fullyBuilt(){return state.ships>=4&&state.berg&&state.net>=50;}
+  function income(){let s=0;for(let i=0;i<10;i++)s+=state.ep[i]*INC[i];return s*boost();}
+  function unitCost(i){return Math.round(COST[i]*Math.pow(GROW,state.ep[i]));}
+  function costFor(i,k){const c=state.ep[i];return COST[i]*Math.pow(GROW,c)*(Math.pow(GROW,k)-1)/(GROW-1);}
+  function maxAff(i){const base=COST[i]*Math.pow(GROW,state.ep[i]);const ratio=1+state.money*(GROW-1)/base;return ratio<=1?0:Math.floor(Math.log(ratio)/Math.log(GROW));}
+  function getLB(){try{return JSON.parse(localStorage.getItem('vimpZug_lb_v1'))||[];}catch(e){return[];}}
+  function setLB(a){try{localStorage.setItem('vimpZug_lb_v1',JSON.stringify(a));}catch(e){}}
+  function addLB(n,s){let a=getLB();n=(n||"Anonym").slice(0,18);const idx=a.findIndex(x=>x.n===n);if(idx>=0){if(s>a[idx].s)a[idx].s=s;}else a.push({n:n,s:s});a.sort((x,y)=>y.s-x.s);a=a.slice(0,20);setLB(a);return a;}
+  function enc(n,s){try{return btoa(unescape(encodeURIComponent(JSON.stringify({n:n,s:Math.round(s)}))));}catch(e){return"";}}
+  function dec(code){try{const o=JSON.parse(decodeURIComponent(escape(atob((code||"").trim()))));if(o&&o.n&&typeof o.s==="number")return o;}catch(e){}return null;}
+  function netCost(){return Math.round(400*Math.pow(1.7,state.net));}
+  function topOwned(){let t=-1;for(let i=0;i<10;i++)if(state.ep[i]>0)t=i;return t;}
+  function tapValue(){return Math.max(3,income()*0.15);}
+  function eraEq(){return topOwned()+1;}
+  function visStation(k){return k==="Zug"||nodeEra[k]<=eraEq();}
+  function stopsVis(l){return l.s.every(visStation);}
+  function visBase(){const q=eraEq();return LINES.filter(l=>l.e<=q&&stopsVis(l));}
+  function visExtra(){const rev=Math.min(EXTRA.length,state.net*2+Math.max(0,eraEq()-2));return EXTRA.slice(0,rev).filter(stopsVis);}
+
+  function fmt(n){n=Math.max(0,n);if(n>=1e12)return (n/1e12).toFixed(2).replace(".",",")+" Bio";if(n>=1e9)return (n/1e9).toFixed(2).replace(".",",")+" Mrd";if(n>=1e6)return (n/1e6).toFixed(2).replace(".",",")+" Mio";if(n>=1e4)return Math.round(n).toLocaleString("de-CH");return (n<100?n.toFixed(n<10?1:0):Math.round(n)).toString().replace(".",",");}
+
+  // ---- geometry ----
+  const cv=document.getElementById("net"),ctx=cv.getContext("2d");
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W=0,H=0,dpr=1;
+  function resize(){const w=cv.parentElement.clientWidth;const h=Math.max(380,Math.min(600,Math.round(w*0.64)));dpr=Math.min(2,window.devicePixelRatio||1);cv.style.height=h+"px";cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);W=cv.width;H=cv.height;}
+  const gx=k=>P[k][0]*W, gy=k=>P[k][1]*H;
+  function tri(x){x%=1;if(x<0)x+=1;return x<0.5?x*2:(1-x)*2;}
+  function offsetPoly(pts,off){if(!off||pts.length<2)return pts;const res=[];for(let i=0;i<pts.length;i++){const p=pts[i],a=pts[i-1]||p,b=pts[i+1]||p;let ix=p[0]-a[0],iy=p[1]-a[1],ox=b[0]-p[0],oy=b[1]-p[1];const li=Math.hypot(ix,iy)||1,lo=Math.hypot(ox,oy)||1;ix/=li;iy/=li;ox/=lo;oy/=lo;let nix=iy,niy=-ix,nox=oy,noy=-ox;if(i===0){nix=nox;niy=noy;}if(i===pts.length-1){nox=nix;noy=niy;}let mx=nix+nox,my=niy+noy;const ml=Math.hypot(mx,my)||1;mx/=ml;my/=ml;let den=mx*nix+my*niy;if(Math.abs(den)<0.35)den=den<0?-0.35:0.35;const sc=off/den;res.push([p[0]+mx*sc,p[1]+my*sc]);}return res;}
+  function linePts(l){return offsetPoly(l.s.map(n=>[gx(n),gy(n)]),(l.off||0)*2.5*dpr);}
+  function posOn(pts,t){let segs=[],tot=0;for(let i=0;i<pts.length-1;i++){const l=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]);segs.push(l);tot+=l;}let d=t*tot;for(let i=0;i<segs.length;i++){if(d<=segs[i]||i===segs.length-1){const f=segs[i]?d/segs[i]:0;return{x:pts[i][0]+(pts[i+1][0]-pts[i][0])*f,y:pts[i][1]+(pts[i+1][1]-pts[i][1])*f};}d-=segs[i];}return{x:pts[0][0],y:pts[0][1]};}
+  function strokeLine(pts,color,w,alpha){ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=w;ctx.lineJoin="round";ctx.lineCap="round";ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);ctx.stroke();ctx.globalAlpha=1;}
+  function ellRot(L,fill,stroke){ctx.save();ctx.translate(L.cx*W,L.cy*H);ctx.rotate(L.rot);ctx.beginPath();ctx.ellipse(0,0,L.rx*W,L.ry*H,0,0,7);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=1.2*dpr;ctx.stroke();ctx.restore();}
+
+  function rebuildViz(){veh=[];const to=topOwned();if(to<0||to>=9)return;const bv=Math.max(1,Math.min(3,1+Math.floor(state.net/16))),xv=Math.max(1,Math.min(2,1+Math.floor(state.net/30)));visBase().forEach(l=>{for(let i=0;i<bv;i++)veh.push({l,ph:(i/bv)+Math.random()*0.15});});visExtra().forEach(l=>{for(let i=0;i<xv;i++)veh.push({l,ph:(i/xv)+Math.random()*0.15});});if(veh.length>110)veh=veh.slice(0,110);}
+
+  function drawLakes(){ellRot(lakeVier,"rgba(35,120,190,0.12)","rgba(90,160,220,0.2)");ellRot(lakeAeg,"rgba(35,120,190,0.16)","rgba(90,160,220,0.28)");ellRot(lakeZug,"rgba(35,120,190,0.18)","rgba(90,160,220,0.3)");ctx.fillStyle="rgba(120,180,220,0.42)";ctx.font="italic 500 "+11*dpr+"px "+getComputedStyle(document.body).fontFamily;ctx.textAlign="center";ctx.fillText("Zugersee",lakeZug.cx*W,lakeZug.cy*H);ctx.fillText("Ägerisee",lakeAeg.cx*W,lakeAeg.cy*H);}
+  function drawShips(){for(let i=0;i<state.ships;i++){const s=ships[i];let ax,ay,bx,by,img;if(s.aeg){ax=lakeAeg.cx*W+(i-2.5)*0.02*W;ay=lakeAeg.cy*H;bx=gx("Unterägeri");by=gy("Unterägeri");img=s.e?eShipImg:shipImg;}else{ax=(0.24+i*0.05)*W;ay=(0.68-i*0.015)*H;bx=0.43*W;by=0.49*H;img=shipImg;}const ph=clock*0.15+i*0.4,t=tri(ph),t2=tri(ph+0.02);const x=ax+(bx-ax)*t,y=ay+(by-ay)*t;const face=(bx-ax)*(t2-t);if(img.complete&&img.naturalWidth){const h=15*dpr,w=h*(img.naturalWidth/img.naturalHeight);ctx.save();ctx.translate(x,y);if(face<0)ctx.scale(-1,1);ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore();}}}
+  function drawBerg(){if(!state.berg)return;const zx=gx("Zug"),zy=gy("Zug"),bx=gx("Zugerberg"),by=gy("Zugerberg");ctx.strokeStyle="rgba(0,167,92,0.6)";ctx.lineWidth=2.4*dpr;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(zx,zy);ctx.lineTo(bx,by);ctx.stroke();const t=tri(clock*0.25),cx=zx+(bx-zx)*t,cy=zy+(by-zy)*t;ctx.fillStyle="#004986";ctx.fillRect(cx-5*dpr,cy-4*dpr,10*dpr,8*dpr);ctx.fillStyle="#00a75c";ctx.beginPath();ctx.arc(bx,by,4.5*dpr,0,7);ctx.fill();ctx.fillStyle="rgba(120,220,170,0.95)";ctx.font="600 "+11*dpr+"px "+getComputedStyle(document.body).fontFamily;ctx.textAlign="center";ctx.fillText("Zugerberg",bx,by-9*dpr);}
+  function drawNodes(portal){for(const name of stations){if(name!=="Zug"&&nodeEra[name]>eraEq())continue;const x=gx(name),y=gy(name),hub=name==="Zug";if(portal){for(let ri=0;ri<3;ri++){const rad=(hub?12:8)*dpr+((clock*38+ri*16)%46)*dpr;ctx.strokeStyle=(fullyBuilt()?"rgba(249,176,0,":"rgba(176,107,255,")+(0.55-((clock*38+ri*16)%46)/92)+")";ctx.lineWidth=1.5*dpr;ctx.beginPath();ctx.arc(x,y,rad,0,7);ctx.stroke();}}if(hub){ctx.fillStyle="#fff";ctx.strokeStyle="#004986";ctx.lineWidth=3*dpr;ctx.beginPath();ctx.arc(x,y,7*dpr,0,7);ctx.fill();ctx.stroke();ctx.fillStyle="#004986";ctx.beginPath();ctx.arc(x,y,3*dpr,0,7);ctx.fill();}else{ctx.fillStyle=fullyBuilt()?"#f9b000":(portal?"#b06bff":"#fff");ctx.beginPath();ctx.arc(x,y,4*dpr,0,7);ctx.fill();ctx.strokeStyle="#0b2036";ctx.lineWidth=2*dpr;ctx.stroke();}ctx.fillStyle=hub?"#f9b000":"rgba(234,242,250,0.92)";ctx.font=(hub?700:500)+" "+(hub?13:10.5)*dpr+"px "+getComputedStyle(document.body).fontFamily;ctx.textAlign="center";const ly=(P[name][1]>0.7)?y+16*dpr:y-11*dpr;ctx.fillText(hub?"Zug Bahnhof":name,x,ly);}}
+
+  function render(){ctx.clearRect(0,0,W,H);drawLakes();const to=topOwned();
+    if(to>=9){const gold=fullyBuilt();const zx=gx("Zug"),zy=gy("Zug");const spoke=gold?"rgba(249,176,0,0.40)":"rgba(176,107,255,0.30)";stations.forEach(s=>{if(s==="Zug")return;ctx.strokeStyle=spoke;ctx.lineWidth=1.6*dpr;ctx.setLineDash([4*dpr,6*dpr]);ctx.beginPath();ctx.moveTo(zx,zy);ctx.lineTo(gx(s),gy(s));ctx.stroke();ctx.setLineDash([]);for(let k=0;k<4;k++){let t=((clock*0.6)+k*0.25+P[s][0])%1;const x=zx+(gx(s)-zx)*t,y=zy+(gy(s)-zy)*t;ctx.fillStyle=(gold?"rgba(249,176,0,":"rgba(176,107,255,")+(0.85-Math.abs(t-0.5)*1.3)+")";ctx.beginPath();ctx.arc(x,y,2.4*dpr,0,7);ctx.fill();}});drawBerg();drawShips();drawNodes(true);drawFX();return;}
+    if(to>=0){const vb=visBase(),vx=visExtra();const gold=fullyBuilt();const dpl=Math.min(6,2+Math.floor(state.net/8));
+      vx.forEach(l=>strokeLine(linePts(l),gold?"#f9b000":l.c,2.6*dpr,gold?0.7:0.55));
+      vb.forEach(l=>strokeLine(linePts(l),gold?"#f9b000":l.c,3.9*dpr,0.95));
+      vx.forEach((l,idx)=>{const pts=linePts(l);for(let k=0;k<dpl;k++){let t=((clock*0.10)+k/dpl+idx*0.07)%1;const p=posOn(pts,t);ctx.fillStyle=gold?"rgba(249,176,0,0.5)":"rgba(255,255,255,0.28)";ctx.beginPath();ctx.arc(p.x,p.y,1.1*dpr,0,7);ctx.fill();}});
+      vb.forEach((l,idx)=>{const pts=linePts(l);for(let k=0;k<dpl;k++){let t=((clock*0.13)+k/dpl+idx*0.11)%1;const p=posOn(pts,t);ctx.fillStyle=gold?"rgba(249,176,0,0.75)":"rgba(255,255,255,0.55)";ctx.beginPath();ctx.arc(p.x,p.y,1.4*dpr,0,7);ctx.fill();}});
+      drawBerg();const img=imgs[to];if(img.complete&&img.naturalWidth){const h=(to>=7?20:18)*dpr,w=h*(img.naturalWidth/img.naturalHeight);const e=eras[to];veh.forEach(v=>{const pts=linePts(v.l);const sp=speedByEra[eraEq()]*0.85;const u=tri(v.ph+clock*sp),u2=tri(v.ph+clock*sp+0.012);const p=posOn(pts,u),p2=posOn(pts,u2);const face=p2.x-p.x;const bob=e.kind==="drone"?Math.sin(clock*6+v.ph*9)*3*dpr:0;ctx.save();ctx.translate(p.x,p.y+bob);if(face<0)ctx.scale(-1,1);ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore();});}}
+    drawShips();drawNodes(false);drawFX();}
+  function drawFX(){for(let i=pulses.length-1;i>=0;i--){const p=pulses[i];p.r+=2.5*dpr;p.a-=0.03;if(p.a<=0){pulses.splice(i,1);continue;}ctx.strokeStyle="rgba(249,176,0,"+p.a+")";ctx.lineWidth=2*dpr;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.stroke();}}
+
+  // ---- earn / tap ----
+  function addFloat(x,y,txt){const s=document.createElement("div");s.className="float";s.textContent=txt;s.style.left=x+"px";s.style.top=y+"px";document.getElementById("stage").appendChild(s);setTimeout(()=>s.remove(),800);}
+  function tap(ev){const r=cv.getBoundingClientRect();const cssx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left;const cssy=(ev.touches?ev.touches[0].clientY:ev.clientY)-r.top;const v=tapValue();state.money+=v;state.seen=Math.max(state.seen,state.money);pulses.push({x:cssx*dpr,y:cssy*dpr,r:4*dpr,a:0.8});addFloat(cssx,cssy,"+CHF "+fmt(v));refresh();}
+  document.getElementById("stage").addEventListener("click",tap);
+
+  // ---- UI ----
+  function setStory(h,t,svg){document.getElementById("storyH").textContent=h;document.getElementById("storyT").textContent=t;if(svg)document.getElementById("storyIco").innerHTML=svg;}
+  function buyEpoch(i){let k=buyMode==='max'?maxAff(i):buyMode;if(k<1)return;const c=costFor(i,k);if(state.money<c)return;const first=state.ep[i]===0;state.money-=c;state.ep[i]+=k;if(first)setStory("Freigeschaltet: "+eras[i].n+" ("+eras[i].y+")",eras[i].fact,svgFor(eras[i]));rebuildViz();refresh(true);}
+  function buyNet(){if(state.net>=50)return;const c=netCost();if(state.money<c)return;state.money-=c;state.net++;rebuildViz();refresh(true);}
+  function buyShip(){if(state.ships>=4)return;const c=ships[state.ships].cost;if(state.money<c)return;state.money-=c;setStory("Neu: "+ships[state.ships].n,shipFacts[state.ships],svgShip(ships[state.ships]));state.ships++;refresh(true);}
+  function buyBerg(){if(state.berg||state.money<bergCost)return;state.money-=bergCost;state.berg=true;setStory("Neu: Zugerbergbahn",bergFact,svgTeleport({c:"#00a75c"}));refresh(true);}
+  function prestige(){if(topOwned()<9||state.ended)return;state.fpw++;state.money=0;state.seen=0;state.ep=[0,0,0,0,0,0,0,0,0,0];state.net=0;if(state.fpw>=3){state.ended=true;showEndgame();}else setStory("Fahrplanwechsel #"+state.fpw,"Die ZVB expandiert in einen weiteren Kanton — alles dauerhaft +10 %. Das Netz startet frisch, dein Bonus bleibt.",svgTeleport({c:"#f9b000"}));rebuildViz();refresh(true);}
+
+  function b(label,cost,cls,dis){return `<button class="buy ${cls||''}" ${dis?"disabled":""}>${label}<span class="c">CHF ${fmt(cost)}</span></button>`;}
+
+  function renderGens(){
+    const box=document.getElementById("gens");let html="";
+    let firstLocked=-1;
+    for(let i=0;i<10;i++){const shown=state.ep[i]>0||state.seen>=0.9*COST[i];if(!shown){firstLocked=i;break;}}
+    for(let i=0;i<10;i++){
+      const e=eras[i],shown=state.ep[i]>0||state.seen>=0.9*COST[i];
+      if(shown){const mx=maxAff(i);const k=buyMode==='max'?mx:buyMode;const c=costFor(i,Math.max(1,k));const aff=buyMode==='max'?mx>=1:state.money>=c;const qlab=buyMode==='max'?("×"+mx):("×"+buyMode);const contrib=state.ep[i]*INC[i]*boost();
+        html+=`<div class="row" data-buy="${i}"><div class="ic">${svgFor(e)}</div><div class="mid"><div class="nm">${e.n} <span style="color:var(--muted);font-weight:400;font-size:12px">· ${e.y}</span></div><div class="meta">${fmt(INC[i])} /s je Fahrzeug${state.ep[i]>0?" · liefert "+fmt(contrib)+" /s":""}</div></div><div class="cnt">${state.ep[i]}</div><button class="buy" data-buy="${i}" ${aff?"":"disabled"}>Kaufen ${qlab}<span class="c">CHF ${fmt(c)}</span></button></div>`;
+      } else if(i===firstLocked){
+        html+=`<div class="row teaser"><div class="ic">${svgFor(e)}</div><div class="mid"><div class="nm">${e.n}</div><div class="meta tflag">Nächste Stufe · verborgen bis ~10 % erreicht</div></div><div class="cnt">?</div><button class="buy" disabled>Gesperrt<span class="c">CHF ${fmt(COST[i])}</span></button></div>`;
+        break;
+      } else break;
+    }
+    box.innerHTML=html;
+    box.querySelectorAll("button[data-buy]").forEach(bt=>bt.onclick=ev=>{ev.stopPropagation();buyEpoch(+bt.dataset.buy);});
+  }
+  function renderBoni(){
+    const box=document.getElementById("boni");
+    let shipRow="";for(let i=0;i<4;i++){shipRow+=`<div class="ship ${i<state.ships?'own':''}">${svgShip(ships[i])}<div class="sn">${ships[i].n}</div></div>`;}
+    box.innerHTML=
+      `<div class="row"><div class="mid"><div class="nm">Netz ausbauen — neue Linie</div><div class="meta">Stufe ${state.net}/50 · boostet ALLES ×${(1+0.18*state.net).toFixed(1)}${state.net<50?" → nächste ×"+(1+0.18*(state.net+1)).toFixed(1):" · Maximum erreicht"}</div></div>${state.net>=50?'<span style="color:var(--zvb-yellow);font-weight:700;font-size:13px">max ×10</span>':b("＋ Linie bauen",netCost(),"gold",state.money<netCost())}</div>`+
+      `<div class="row"><div class="mid"><div class="nm">Zugerbergbahn ${state.berg?"· ✓ in Betrieb":""}</div><div class="meta">einmalig · +20 % auf alles</div></div>${state.berg?'<span style="color:var(--zvb-green);font-weight:700;font-size:13px">gekauft</span>':b("Kaufen · +20 %",bergCost,"green",state.money<bergCost)}</div>`+
+      `<div class="row"><div class="mid"><div class="nm">Schifffahrt · ${state.ships}/4</div><div class="meta">+10 % Fahrgäste je Schiff</div><div class="ships">${shipRow}</div></div>${state.ships>=4?'<span style="color:var(--zvb-green);font-weight:700;font-size:13px">komplett</span>':b("＋ "+ships[state.ships].n,ships[state.ships].cost,"green",state.money<ships[state.ships].cost)}</div>`;
+    const bt=box.children;bt[0].querySelector("button")&&(bt[0].querySelector("button").onclick=buyNet);
+    const bb=bt[1].querySelector("button");if(bb)bb.onclick=buyBerg;
+    const bs=bt[2].querySelector("button");if(bs)bs.onclick=buyShip;
+  }
+  function renderPrestige(){
+    const box=document.getElementById("prestige");const can=topOwned()>=9&&!state.ended;
+    box.innerHTML=`<div class="row"><div class="mid"><div class="nm">Fahrplanwechsel · ${state.fpw}/3</div><div class="meta">${state.ended?"Spiel gemeistert":can?"bereit — expandiere in einen neuen Kanton (+10 % dauerhaft, Netz startet frisch)":"benötigt die Endstufe (Teleport-Station), dauerhafter Bonus ×"+(1+0.1*state.fpw).toFixed(1)}</div></div><button class="buy gold" id="fpwBtn" ${can?"":"disabled"}>Durchführen<span class="c">+10 % dauerhaft</span></button></div>`;
+    const btn=document.getElementById("fpwBtn");if(btn)btn.onclick=prestige;
+  }
+  function refresh(full){
+    if(fullyBuilt()&&!state.goldShown){state.goldShown=true;setStory("Netz komplett ausgebaut!","Alle 4 Schiffe, die Zugerbergbahn und der maximale Netzausbau (×10) sind erreicht — das ganze Liniennetz erstrahlt jetzt in Gold.",svgTeleport({c:"#f9b000"}));}
+    document.getElementById("money").textContent="CHF "+fmt(state.money);
+    document.getElementById("inc").textContent="+"+fmt(income())+" /s"+(speed>1?"  ·  "+speed+"×":"");
+    const to=topOwned();
+    document.getElementById("epoNum").textContent=to<0?"–":String(to+1).padStart(2,"0");
+    document.getElementById("epoIco").innerHTML=to<0?"":svgFor(eras[to]);
+    document.getElementById("epoName").textContent=to<0?"Noch kein Fahrzeug":eras[to].n;
+    document.getElementById("epoDesc").textContent=to<0?"Tippe auf die Karte":(to>=9?"Endstufe erreicht":eras[to].y);
+    document.getElementById("stLines").textContent=to<0?0:(visBase().length+visExtra().length);
+    document.getElementById("stBoost").textContent="×"+boost().toFixed(1);
+    document.getElementById("tapHint").style.display=to>=0?"none":"block";
+    if(full!==false){renderGens();renderBoni();renderPrestige();}
+  }
+
+  function renderLB(){const box=document.getElementById("lbBox");if(!box)return;const lb=getLB();box.innerHTML=lb.length?`<ol class="lb">${lb.map((r,i)=>`<li class="${r.n===state.name?'me':''}"><span class="rk">${i+1}.</span><span class="nm">${r.n}</span><span class="sc">CHF ${fmt(r.s)}</span></li>`).join("")}</ol>`:`<p class="sec-sub" style="margin-top:8px">Noch keine Einträge — teile deinen Score oder füge einen Kollegen-Code ein.</p>`;}
+  function renderRank(){const box=document.getElementById("rank");if(!box)return;
+    box.innerHTML=`<div class="rankctrl"><input id="pname2" maxlength="18" placeholder="Dein Name" value="${(state.name||'').replace(/"/g,'')}"><button class="buy green" id="shareBtn" style="min-width:150px">Score teilen<span class="c">Code kopieren</span></button></div><div class="rankctrl"><input id="pcode" placeholder="Kollegen-Code einfügen"><button class="buy" id="addCode" style="min-width:120px">Hinzufügen<span class="c">&nbsp;</span></button></div><div id="shareOut"></div><div id="lbBox"></div>`;
+    document.getElementById("shareBtn").onclick=()=>{const nm=document.getElementById("pname2").value.trim()||"Anonym";state.name=nm;save();addLB(nm,state.seen);const code=enc(nm,state.seen);try{if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(code).catch(function(){});}catch(e){}document.getElementById("shareOut").innerHTML=`<div class="shareout"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">Dein Code (in die Zwischenablage kopiert) — schick ihn deinen Kollegen:</div><textarea readonly onclick="this.select()">${code}</textarea></div>`;renderLB();};
+    document.getElementById("addCode").onclick=()=>{const el=document.getElementById("pcode");const o=dec(el.value);if(o){addLB(o.n,o.s);el.value="";el.style.borderColor="";renderLB();}else{el.style.borderColor="var(--zvb-yellow)";}};
+    renderLB();
+  }
+  function showEndgame(){const box=document.getElementById("endgame");box.style.display="block";
+    box.innerHTML=`<h3>Verkehrs-Imperium Zug gemeistert!</h3><p>Du hast dreimal die Endstufe erreicht — Peak-Umsatz CHF ${fmt(state.seen)}. Trag dich in die Rangliste ein und teile deinen Code:</p><div class="rankctrl"><input id="pname3" maxlength="18" placeholder="Dein Name" value="${(state.name||'').replace(/"/g,'')}"><button class="buy gold" id="saveScore" style="min-width:150px">Eintragen &amp; teilen<span class="c">Code kopieren</span></button></div><div id="egOut"></div>`;
+    document.getElementById("saveScore").onclick=()=>{const v=document.getElementById("pname3").value.trim()||"Du";state.name=v;save();addLB(v,state.seen);const code=enc(v,state.seen);try{if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(code).catch(function(){});}catch(e){}document.getElementById("egOut").innerHTML=`<div class="shareout"><div style="font-size:12px;color:var(--muted);margin:8px 0 4px">Code kopiert — teile ihn mit deinen Kollegen:</div><textarea readonly onclick="this.select()">${code}</textarea></div>`;renderRank();};
+    box.scrollIntoView({behavior:"smooth",block:"center"});
+  }
+
+  // ---- offline / save / loop ----
+  function save(){try{state.ts=Date.now();localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+  function offline(){const now=Date.now();let dt=(now-(state.ts||now))/1000;if(dt>10){dt=Math.min(dt,8*3600);const earned=income()*dt;if(earned>0){state.money+=earned;state.seen=Math.max(state.seen,state.money);const w=document.getElementById("welcome");const hrs=dt/3600;w.style.display="block";w.innerHTML=`Willkommen zurück! Deine Linien haben in ${hrs>=1?hrs.toFixed(1)+" h":Math.round(dt/60)+" min"} Abwesenheit <b>CHF ${fmt(earned)}</b> verdient.`;}}}
+  offline();
+  let last=performance.now();
+  function loop(now){const dt=Math.min(0.25,(now-last)/1000);last=now;if(!reduce)clock+=dt;state.money+=income()*dt*speed;state.seen=Math.max(state.seen,state.money);document.getElementById("money").textContent="CHF "+fmt(state.money);render();requestAnimationFrame(loop);}
+
+  document.getElementById("speedSeg").addEventListener("click",e=>{const b2=e.target.closest("button");if(!b2)return;speed=+b2.dataset.s;[...e.currentTarget.children].forEach(c=>c.classList.toggle("on",c===b2));refresh(false);});
+  document.getElementById("buySeg").addEventListener("click",e=>{const b2=e.target.closest("button");if(!b2)return;buyMode=b2.dataset.q==='max'?'max':(+b2.dataset.q);[...e.currentTarget.children].forEach(c=>c.classList.toggle("on",c===b2));renderGens();});
+  document.getElementById("resetBtn").onclick=()=>{if(confirm("Spielstand wirklich zurücksetzen? (Die Rangliste bleibt erhalten.)")){try{localStorage.removeItem(KEY);}catch(e){}state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:state.name||"",goldShown:false,ts:Date.now()};document.getElementById("endgame").style.display="none";document.getElementById("welcome").style.display="none";rebuildViz();refresh();renderRank();}};
+
+  window.addEventListener("resize",()=>{resize();});
+  document.addEventListener("visibilitychange",()=>{if(document.hidden)save();});
+  window.addEventListener("pagehide",save);
+  setInterval(save,4000);
+  setInterval(()=>refresh(),400);
+
+  resize();rebuildViz();refresh();renderRank();if(state.ended)showEndgame();
+  requestAnimationFrame(loop);
+})();
+</script>
