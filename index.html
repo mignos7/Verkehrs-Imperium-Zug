@@ -32,6 +32,7 @@
   .epo-meta .nm{font-size:15px;font-weight:700;line-height:1.15}
   .epo-meta .ds{font-size:12px;color:var(--muted);line-height:1.25}
   .tap-hint{position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:12.5px;color:var(--muted);pointer-events:none}
+  .gb-badge{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--zvb-yellow);color:#4a2e00;font-weight:800;font-size:13px;padding:6px 14px;border-radius:20px;pointer-events:none;box-shadow:0 2px 12px rgba(249,176,0,.5);font-family:var(--mono)}
   .stage-stats{position:absolute;right:12px;top:12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
   .chip{background:rgba(7,22,39,.72);border:1px solid var(--edge-strong);border-radius:10px;padding:6px 10px;text-align:right;min-width:80px}
   .chip .k{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-2)}
@@ -135,6 +136,7 @@
       <div class="chip"><div class="k">Boost</div><div class="v" id="stBoost">×1.0</div></div>
     </div>
     <div class="tap-hint" id="tapHint">Tippe auf die Karte → Fahrgäste befördern &amp; CHF verdienen</div>
+    <div class="gb-badge" id="gbBadge" style="display:none"></div>
   </div>
 
   <div class="testbar">
@@ -225,13 +227,14 @@
 
   // ---- state ----
   const KEY="vimpZug_v1";
-  let state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:"",goldShown:false,ach:{},cheated:false,vreneli:0,skill:{},autoOn:true,ts:Date.now()};
+  let state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:"",goldShown:false,ach:{},cheated:false,vreneli:0,skill:{},autoOn:true,boostUntil:0,boostMult:7,ts:Date.now()};
   let speed=1, buyMode=1, veh=[], clock=0, pulses=[], floats=[];
   try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);Object.assign(state,s);}}catch(e){}
 
   function boost(){return (1+netPer()*state.net)*(state.berg?1.2:1)*(1+0.1*state.ships);}
   function fullyBuilt(){return state.ships>=4&&state.berg&&state.net>=50;}
-  function income(){let s=0;for(let i=0;i<10;i++)s+=state.ep[i]*INC[i];return s*boost()*skIncomeMult();}
+  function gbMult(){return (state.boostUntil&&Date.now()<state.boostUntil)?(state.boostMult||7):1;}
+  function income(){let s=0;for(let i=0;i<10;i++)s+=state.ep[i]*INC[i];return s*boost()*skIncomeMult()*gbMult();}
   function unitCost(i){return Math.round(COST[i]*Math.pow(GROW,state.ep[i])*unitDisc(i));}
   function costFor(i,k){const c=state.ep[i];return COST[i]*Math.pow(GROW,c)*(Math.pow(GROW,k)-1)/(GROW-1)*unitDisc(i);}
   function maxAff(i){const base=COST[i]*Math.pow(GROW,state.ep[i]);const ratio=1+state.money*(GROW-1)/base;return ratio<=1?0:Math.floor(Math.log(ratio)/Math.log(GROW));}
@@ -319,7 +322,7 @@
 
   // ---- earn / tap ----
   function addFloat(x,y,txt){const s=document.createElement("div");s.className="float";s.textContent=txt;s.style.left=x+"px";s.style.top=y+"px";document.getElementById("stage").appendChild(s);setTimeout(()=>s.remove(),800);}
-  function tap(ev){const r=cv.getBoundingClientRect();const cssx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left;const cssy=(ev.touches?ev.touches[0].clientY:ev.clientY)-r.top;const v=tapValue();state.money+=v;state.seen=Math.max(state.seen,state.money);pulses.push({x:cssx*dpr,y:cssy*dpr,r:4*dpr,a:0.8});addFloat(cssx,cssy,"+CHF "+fmt(v));refresh();}
+  function tap(ev){const r=cv.getBoundingClientRect();const cssx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left;const cssy=(ev.touches?ev.touches[0].clientY:ev.clientY)-r.top;if(gbActive){const p=gbPos();if(Math.hypot(cssx-p.nx*r.width,cssy-p.ny*r.height)<Math.max(26,r.width*0.07)){goldenClick(cssx,cssy);return;}}const v=tapValue();state.money+=v;state.seen=Math.max(state.seen,state.money);pulses.push({x:cssx*dpr,y:cssy*dpr,r:4*dpr,a:0.8});addFloat(cssx,cssy,"+CHF "+fmt(v));refresh();}
   document.getElementById("stage").addEventListener("click",tap);
 
   // ---- UI ----
@@ -399,12 +402,12 @@
   function offline(){const now=Date.now();let dt=(now-(state.ts||now))/1000;if(dt>10){dt=Math.min(dt,offCapH()*3600);const earned=income()*dt*offMult();if(earned>0){state.money+=earned;state.seen=Math.max(state.seen,state.money);const w=document.getElementById("welcome");const hrs=dt/3600;w.style.display="block";w.innerHTML=`Willkommen zurück! Deine Linien haben in ${hrs>=1?hrs.toFixed(1)+" h":Math.round(dt/60)+" min"} Abwesenheit <b>CHF ${fmt(earned)}</b> verdient.`;}}}
   offline();
   let last=performance.now(),autoAcc=0;
-  function loop(now){const dt=Math.min(0.25,(now-last)/1000);last=now;if(!reduce)clock+=dt;state.money+=income()*dt*speed;state.seen=Math.max(state.seen,state.money);if(skHas('L4N2')&&state.autoOn!==false){autoAcc+=dt;if(autoAcc>=1){autoAcc-=1;autoBuy();}}document.getElementById("money").textContent="CHF "+fmt(state.money);render();renderSB();requestAnimationFrame(loop);}
+  function loop(now){const dt=Math.min(0.25,(now-last)/1000);last=now;if(!reduce)clock+=dt;state.money+=income()*dt*speed;state.seen=Math.max(state.seen,state.money);if(skHas('L4N2')&&state.autoOn!==false){autoAcc+=dt;if(autoAcc>=1){autoAcc-=1;autoBuy();}}tickGB();document.getElementById("money").textContent="CHF "+fmt(state.money);render();drawGB();renderSB();updateGBBadge();requestAnimationFrame(loop);}
 
   document.getElementById("buySeg").addEventListener("click",e=>{const b2=e.target.closest("button");if(!b2)return;buyMode=b2.dataset.q==='max'?'max':(+b2.dataset.q);[...e.currentTarget.children].forEach(c=>c.classList.toggle("on",c===b2));renderGens();renderBoni();});
   {const ab=document.getElementById("autoBtn");if(ab)ab.onclick=()=>{state.autoOn=(state.autoOn===false);save();updateAutoBtn();};}
   (function(){const vEl=document.getElementById("cheatV");if(!vEl)return;let vc=0,vt=null;vEl.addEventListener("click",()=>{vc++;clearTimeout(vt);vt=setTimeout(()=>{vc=0;},1500);if(vc>=7){vc=0;state.money+=1e100;state.seen=Math.max(state.seen,state.money);state.cheated=true;save();setStory("Cheat aktiviert!","Praktisch unendliches Geld! Jetzt kannst du alle Erfolge testen. Hinweis: Dein Ranglisten-Eintrag wird ab jetzt als „Cheat – ungültig“ markiert.",svgTeleport({c:"#f9b000"}));refresh(true);checkAch();}});})();
-  document.getElementById("resetBtn").onclick=()=>{if(confirm("Spielstand wirklich zurücksetzen? (Die Rangliste bleibt erhalten.)")){try{localStorage.removeItem(KEY);}catch(e){}state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:state.name||"",goldShown:false,ach:{},cheated:false,vreneli:0,skill:{},autoOn:true,ts:Date.now()};document.getElementById("endgame").style.display="none";document.getElementById("welcome").style.display="none";rebuildViz();refresh();renderRank();renderAch();renderSB();}};
+  document.getElementById("resetBtn").onclick=()=>{if(confirm("Spielstand wirklich zurücksetzen? (Die Rangliste bleibt erhalten.)")){try{localStorage.removeItem(KEY);}catch(e){}state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:state.name||"",goldShown:false,ach:{},cheated:false,vreneli:0,skill:{},autoOn:true,boostUntil:0,boostMult:7,ts:Date.now()};document.getElementById("endgame").style.display="none";document.getElementById("welcome").style.display="none";rebuildViz();refresh();renderRank();renderAch();renderSB();}};
 
   window.addEventListener("resize",()=>{resize();});
   let hiddenAt=null;
@@ -431,7 +434,7 @@
     {c:'#16c06e',nodes:[['H','Mehreinnahmen I','+15 % Einkommen',1],['H','Mehreinnahmen II','+15 % Einkommen',1],['U','Tarifreform','+50 % Einkommen',3],['S','Taktfahrplan','Einkommen ×2',9]]},
     {c:'#2b8fe0',nodes:[['H','Günstige Trassen','Netzausbau −15 % Kosten',1],['U','Grundnetz','Netz startet auf Stufe 5',3],['S','Doppelspur','Netzstufen +50 % wirksamer',9]]},
     {c:'#f9b000',nodes:[['H','Startkapital','Beginne mit Startgeld',1],['U','Rabatt-Beschaffung','Erste 3 Stufen −50 % Kosten',3],['S','Fliegender Start','Startgeld + Postkutsche & Tram vorab',9]]},
-    {c:'#e2453a',nodes:[['H','Kräftiges Tippen','Tippen ×2',1],['U','Goldsaison','Goldener Bus häufiger',3,1],['S','Doppel-Gold','Goldener Bus wirkt doppelt',9,1]]},
+    {c:'#e2453a',nodes:[['H','Kräftiges Tippen','Tippen ×2',1],['U','Goldsaison','Goldener Bus erscheint häufiger',3],['S','Doppel-Gold','Goldener Bus wirkt doppelt (×14 / doppelte Geldspritze)',9]]},
     {c:'#a06be0',nodes:[['H','Nachtbetrieb','Offline-Bonus 8 h → 16 h',1],['U','Standby-Ertrag','Offline-Ertrag +50 %',3],['S','Beschaffungsabteilung','Auto-Käufer: kauft günstigste Stufe',10]]},
   ];
   const SBN=[],SBE=[],SBschl=[];
@@ -460,6 +463,17 @@
     sbcv.addEventListener('mouseleave',()=>{if(sbtip)sbtip.style.opacity='0';sbHover=null;});
     sbcv.addEventListener('click',ev=>{const rc=sbcv.getBoundingClientRect(),nd=sbHit(ev.clientX-rc.left,ev.clientY-rc.top);if(!nd||!sbAvail(nd.id))return;if((state.vreneli||0)>=nd.cost){state.vreneli-=nd.cost;if(!state.skill)state.skill={};state.skill[nd.id]=true;save();refresh(true);}else{const el=document.getElementById('sbVreneli');if(el){el.style.color='#e2453a';setTimeout(()=>el.style.color='var(--zvb-yellow)',350);}}});
   }
+
+  // ================= GOLDENER BUS =================
+  let gbActive=null,gbNext=0;
+  const goldBusImg=toImg(svgBus({c:'#f9b000'}));
+  function gbInterval(){let iv=180+Math.random()*240;if(skHas('L3N1'))iv*=0.45;return iv;}
+  function spawnGB(){const fromLeft=Math.random()<0.5;gbActive={nx0:fromLeft?0.08:0.92,ny0:0.22+Math.random()*0.5,vx:(fromLeft?1:-1)*0.06,born:clock,dur:12};}
+  function gbPos(){const t=clock-gbActive.born;let nx=gbActive.nx0+gbActive.vx*t;nx=Math.max(0.06,Math.min(0.94,nx));const ny=gbActive.ny0+Math.sin(t*1.1)*0.02;return{nx,ny};}
+  function tickGB(){if(topOwned()<0)return;if(!gbActive){if(gbNext===0)gbNext=clock+gbInterval();if(clock>=gbNext&&!document.hidden)spawnGB();}else if(clock-gbActive.born>gbActive.dur){gbActive=null;gbNext=clock+gbInterval();}}
+  function drawGB(){if(!gbActive)return;const p=gbPos(),age=clock-gbActive.born,a=Math.max(0,Math.min(1,age/1.5)*Math.min(1,(gbActive.dur-age)/1.5)),img=goldBusImg;if(!(img.complete&&img.naturalWidth))return;const x=p.nx*W,y=p.ny*H,h=26*dpr,w=h*(img.naturalWidth/img.naturalHeight);ctx.save();ctx.globalAlpha=a;ctx.shadowColor='#f9b000';ctx.shadowBlur=18*dpr;ctx.translate(x,y);if(gbActive.vx<0)ctx.scale(-1,1);ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore();ctx.globalAlpha=1;}
+  function goldenClick(cssx,cssy){const dbl=skHas('L3N2');if(Math.random()<0.65){state.boostMult=dbl?14:7;state.boostUntil=Date.now()+30000;addFloat(cssx,cssy,'×'+state.boostMult+' Ansturm!');}else{const amt=income()*(dbl?1800:900);state.money+=amt;state.seen=Math.max(state.seen,state.money);addFloat(cssx,cssy,'+CHF '+fmt(amt));}gbActive=null;gbNext=clock+gbInterval();pulses.push({x:cssx*dpr,y:cssy*dpr,r:6*dpr,a:0.9});refresh();}
+  function updateGBBadge(){const el=document.getElementById('gbBadge');if(!el)return;const bu=state.boostUntil||0;if(bu>Date.now()){el.style.display='block';el.textContent='×'+(state.boostMult||7)+' Ansturm · '+Math.ceil((bu-Date.now())/1000)+' s';}else if(el.style.display!=='none')el.style.display='none';}
 
   resize();rebuildViz();refresh();renderRank();renderAch();checkAch(true);renderSB();if(state.ended)showEndgame();
   requestAnimationFrame(loop);
