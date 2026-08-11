@@ -82,6 +82,10 @@
   .lb .cheat{color:#e24b4a;font-size:11px;font-weight:600}
   .name-row{display:flex;gap:8px}.name-row input{flex:1;background:var(--stage);border:1px solid var(--edge-strong);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:14px}
   .buymode{display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:13px;color:var(--muted)}
+  .sb-shell{position:relative;border-radius:16px;overflow:hidden;background:radial-gradient(120% 120% at 50% 40%,var(--stage-2),var(--stage) 72%);border:1px solid var(--edge);max-width:560px;margin:0 auto}
+  .sb-shell canvas{display:block;width:100%;height:auto;cursor:pointer;touch-action:manipulation}
+  .tip{position:absolute;pointer-events:none;background:rgba(7,22,39,.95);border:1px solid var(--edge-strong);border-radius:10px;padding:8px 10px;max-width:210px;font-size:12px;line-height:1.4;opacity:0;transition:opacity .1s;z-index:5}
+  .tip .t{font-weight:700;font-size:13px;margin-bottom:2px}.tip .e{color:var(--muted)}.tip .c{font-family:var(--mono);color:var(--zvb-yellow);margin-top:3px}.tip .st{margin-top:3px;font-size:11px;font-weight:700}
   .rankctrl{display:flex;gap:8px;margin-bottom:8px}
   .rankctrl input{flex:1;min-width:0;background:var(--stage);border:1px solid var(--edge-strong);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:14px}
   .rankctrl input:focus-visible{outline:3px solid var(--zvb-yellow);outline-offset:2px}
@@ -152,6 +156,11 @@
   <h3 class="sec-h">Fahrplanwechsel — Prestige</h3>
   <div id="prestige"></div>
 
+  <h3 class="sec-h">Skillbus — dauerhafte Upgrades</h3>
+  <p class="sec-sub">Beim Fahrplanwechsel verdienst du <b>Vreneli</b>. Gib sie hier aus — von der <b>Einsatzzentrale</b> in der Mitte nach aussen (Knoten nur neben einem schon offenen freischaltbar). Mit der Maus drüberfahren zeigt die Wirkung.</p>
+  <div style="display:flex;align-items:center;gap:10px;margin:0 0 12px"><span style="font-size:13px;color:var(--muted)">Verfügbare Vreneli:</span><span id="sbVreneli" style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--zvb-yellow)">0</span></div>
+  <div class="sb-shell"><canvas id="sb" aria-label="Skillbus — Prestige-Netz"></canvas><div class="tip" id="sbtip"></div></div>
+
   <h3 class="sec-h">Rangliste — mit Kollegen teilen</h3>
   <p class="sec-sub">Kein Server nötig: Teile deinen Punktestand (Peak-Umsatz) als Code. Deine Kollegen fügen ihn ein — und du ihre — dann seht ihr alle in einer Tabelle.</p>
   <div id="rank"></div>
@@ -214,15 +223,15 @@
 
   // ---- state ----
   const KEY="vimpZug_v1";
-  let state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:"",goldShown:false,ach:{},cheated:false,ts:Date.now()};
+  let state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:"",goldShown:false,ach:{},cheated:false,vreneli:0,skill:{},ts:Date.now()};
   let speed=1, buyMode=1, veh=[], clock=0, pulses=[], floats=[];
   try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);Object.assign(state,s);}}catch(e){}
 
-  function boost(){return (1+0.18*state.net)*(state.berg?1.2:1)*(1+0.1*state.ships)*(1+0.1*state.fpw);}
+  function boost(){return (1+netPer()*state.net)*(state.berg?1.2:1)*(1+0.1*state.ships);}
   function fullyBuilt(){return state.ships>=4&&state.berg&&state.net>=50;}
-  function income(){let s=0;for(let i=0;i<10;i++)s+=state.ep[i]*INC[i];return s*boost();}
-  function unitCost(i){return Math.round(COST[i]*Math.pow(GROW,state.ep[i]));}
-  function costFor(i,k){const c=state.ep[i];return COST[i]*Math.pow(GROW,c)*(Math.pow(GROW,k)-1)/(GROW-1);}
+  function income(){let s=0;for(let i=0;i<10;i++)s+=state.ep[i]*INC[i];return s*boost()*skIncomeMult();}
+  function unitCost(i){return Math.round(COST[i]*Math.pow(GROW,state.ep[i])*unitDisc(i));}
+  function costFor(i,k){const c=state.ep[i];return COST[i]*Math.pow(GROW,c)*(Math.pow(GROW,k)-1)/(GROW-1)*unitDisc(i);}
   function maxAff(i){const base=COST[i]*Math.pow(GROW,state.ep[i]);const ratio=1+state.money*(GROW-1)/base;return ratio<=1?0:Math.floor(Math.log(ratio)/Math.log(GROW));}
   function getLB(){try{return JSON.parse(localStorage.getItem('vimpZug_lb_v1'))||[];}catch(e){return[];}}
   function setLB(a){try{localStorage.setItem('vimpZug_lb_v1',JSON.stringify(a));}catch(e){}}
@@ -255,19 +264,25 @@
     if(state.ships>=4)g("ships_all");if(state.berg)g("berg");if(state.fpw>=1)g("fpw1");if(state.fpw>=2)g("fpw2");if(state.fpw>=3)g("fpw3");
     if(newly.length){renderAch();save();if(!silent){const d=achDef(newly[newly.length-1]);setStory("Erfolg freigeschaltet — "+d.title,d.text,d.icon);}}
   }
-  function netCost(){return Math.round(400*Math.pow(1.7,state.net));}
-  function netCostFor(k){return 400*Math.pow(1.7,state.net)*(Math.pow(1.7,k)-1)/0.7;}
+  function netCost(){return Math.round(400*Math.pow(1.7,state.net)*netDisc());}
+  function netCostFor(k){return 400*Math.pow(1.7,state.net)*(Math.pow(1.7,k)-1)/0.7*netDisc();}
   function maxNetAff(){let k=0;while(state.net+k<50&&netCostFor(k+1)<=state.money)k++;return k;}
   function netBuyQty(){if(state.net>=50)return 0;return buyMode==='max'?maxNetAff():Math.min(buyMode,50-state.net);}
   function topOwned(){let t=-1;for(let i=0;i<10;i++)if(state.ep[i]>0)t=i;return t;}
-  function tapValue(){return Math.max(3,income()*0.15);}
+  function tapValue(){let v=Math.max(3,income()*0.15);if(skHas('L3N0'))v*=2;return v;}
   function eraEq(){return topOwned()+1;}
   function visStation(k){return k==="Zug"||nodeEra[k]<=eraEq();}
   function stopsVis(l){return l.s.every(visStation);}
   function visBase(){const q=eraEq();return LINES.filter(l=>l.e<=q&&stopsVis(l));}
   function visExtra(){const rev=Math.min(EXTRA.length,state.net*2+Math.max(0,eraEq()-2));return EXTRA.slice(0,rev).filter(stopsVis);}
 
-  function fmt(n){n=Math.max(0,n);if(n>=1e15)return n.toExponential(1).replace(".",",");if(n>=1e12)return (n/1e12).toFixed(2).replace(".",",")+" Bio";if(n>=1e9)return (n/1e9).toFixed(2).replace(".",",")+" Mrd";if(n>=1e6)return (n/1e6).toFixed(2).replace(".",",")+" Mio";if(n>=1e4)return Math.round(n).toLocaleString("de-CH");return (n<100?n.toFixed(n<10?1:0):Math.round(n)).toString().replace(".",",");}
+  const SUF=["Mio","Mrd","Bio","Trio","Quadrio","Quintio","Sextio","Septio","Oktio","Nonio","Dezio","Undezio","Dodezio"];
+  function fmt(n){n=Math.max(0,n);
+    if(n<1e6){if(n>=1e4)return Math.round(n).toLocaleString("de-CH");return (n<100?n.toFixed(n<10?1:0):Math.round(n).toString()).replace(".",",");}
+    let i=0,v=n;while(v>=1000){v/=1000;i++;}const si=i-2;
+    if(si<SUF.length)return v.toFixed(2).replace(".",",")+" "+SUF[si];
+    const e=i*3+Math.floor(Math.log10(v));return (n/Math.pow(10,e)).toFixed(1).replace(".",",")+"·10^"+e;}
+  function fmtV(n){n=Math.floor(n||0);return n<1e6?n.toLocaleString("de-CH"):fmt(n);}
 
   // ---- geometry ----
   const cv=document.getElementById("net"),ctx=cv.getContext("2d");
@@ -311,7 +326,7 @@
   function buyNet(){const k=netBuyQty();if(k<1)return;const c=netCostFor(k);if(state.money<c)return;state.money-=c;state.net+=k;rebuildViz();refresh(true);}
   function buyShip(){if(state.ships>=4)return;const c=ships[state.ships].cost;if(state.money<c)return;state.money-=c;setStory("Neu: "+ships[state.ships].n,shipFacts[state.ships],svgShip(ships[state.ships]));state.ships++;refresh(true);checkAch();}
   function buyBerg(){if(state.berg||state.money<bergCost)return;state.money-=bergCost;state.berg=true;setStory("Neu: Zugerbergbahn",bergFact,svgTeleport({c:"#00a75c"}));refresh(true);checkAch();}
-  function prestige(){if(topOwned()<9||state.ended)return;state.fpw++;state.money=0;state.seen=0;state.ep=[0,0,0,0,0,0,0,0,0,0];state.net=0;if(state.fpw>=3){state.ended=true;showEndgame();}else setStory("Fahrplanwechsel #"+state.fpw,"Die ZVB expandiert in einen weiteren Kanton — alles dauerhaft +10 %. Das Netz startet frisch, dein Bonus bleibt.",svgTeleport({c:"#f9b000"}));rebuildViz();refresh(true);checkAch();}
+  function prestige(){if(topOwned()<9||state.ended)return;const g=Math.floor(Math.sqrt(state.seen/5e12));state.vreneli=(state.vreneli||0)+g;state.fpw++;state.ships=0;state.berg=false;applyRunStart();if(state.fpw>=3){state.ended=true;showEndgame();}else setStory("Fahrplanwechsel #"+state.fpw+" · +"+fmtV(g)+" Vreneli",fmtV(g)+" Vreneli verdient! Investiere sie unten im Skillbus. Neuer Kanton: Netz, Schiffe & Bergbahn starten frisch.",svgCoin());rebuildViz();refresh(true);renderSB();checkAch();}
 
   function b(label,cost,cls,dis){return `<button class="buy ${cls||''}" ${dis?"disabled":""}>${label}<span class="c">CHF ${fmt(cost)}</span></button>`;}
 
@@ -343,8 +358,8 @@
     const bs=bt[2].querySelector("button");if(bs)bs.onclick=buyShip;
   }
   function renderPrestige(){
-    const box=document.getElementById("prestige");const can=topOwned()>=9&&!state.ended;
-    box.innerHTML=`<div class="row"><div class="mid"><div class="nm">Fahrplanwechsel · ${state.fpw}/3</div><div class="meta">${state.ended?"Spiel gemeistert":can?"bereit — expandiere in einen neuen Kanton (+10 % dauerhaft, Netz startet frisch)":"benötigt die Endstufe (Teleport-Station), dauerhafter Bonus ×"+(1+0.1*state.fpw).toFixed(1)}</div></div><button class="buy gold" id="fpwBtn" ${can?"":"disabled"}>Durchführen<span class="c">+10 % dauerhaft</span></button></div>`;
+    const box=document.getElementById("prestige");const can=topOwned()>=9&&!state.ended;const g=Math.floor(Math.sqrt(state.seen/5e12));
+    box.innerHTML=`<div class="row"><div class="mid"><div class="nm">Fahrplanwechsel · ${state.fpw}/3</div><div class="meta">${state.ended?"Spiel gemeistert":can?("bereit — bringt +"+fmtV(g)+" Vreneli. Netz, Schiffe & Bergbahn starten frisch."):"benötigt die Endstufe (Teleport-Station) · aktuell +"+fmtV(g)+" Vreneli"}</div></div><button class="buy gold" id="fpwBtn" ${can?"":"disabled"}>Durchführen<span class="c">+${fmtV(g)} Vreneli</span></button></div>`;
     const btn=document.getElementById("fpwBtn");if(btn)btn.onclick=prestige;
   }
   function refresh(full){
@@ -359,6 +374,7 @@
     document.getElementById("stLines").textContent=to<0?0:(visBase().length+visExtra().length);
     document.getElementById("stBoost").textContent="×"+boost().toFixed(1);
     document.getElementById("tapHint").style.display=to>=0?"none":"block";
+    const vr=document.getElementById("sbVreneli");if(vr)vr.textContent=fmtV(state.vreneli);
     if(full!==false){renderGens();renderBoni();renderPrestige();}
   }
 
@@ -377,26 +393,71 @@
 
   // ---- offline / save / loop ----
   function save(){try{state.ts=Date.now();localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
-  function offline(){const now=Date.now();let dt=(now-(state.ts||now))/1000;if(dt>10){dt=Math.min(dt,8*3600);const earned=income()*dt;if(earned>0){state.money+=earned;state.seen=Math.max(state.seen,state.money);const w=document.getElementById("welcome");const hrs=dt/3600;w.style.display="block";w.innerHTML=`Willkommen zurück! Deine Linien haben in ${hrs>=1?hrs.toFixed(1)+" h":Math.round(dt/60)+" min"} Abwesenheit <b>CHF ${fmt(earned)}</b> verdient.`;}}}
+  function offline(){const now=Date.now();let dt=(now-(state.ts||now))/1000;if(dt>10){dt=Math.min(dt,offCapH()*3600);const earned=income()*dt*offMult();if(earned>0){state.money+=earned;state.seen=Math.max(state.seen,state.money);const w=document.getElementById("welcome");const hrs=dt/3600;w.style.display="block";w.innerHTML=`Willkommen zurück! Deine Linien haben in ${hrs>=1?hrs.toFixed(1)+" h":Math.round(dt/60)+" min"} Abwesenheit <b>CHF ${fmt(earned)}</b> verdient.`;}}}
   offline();
-  let last=performance.now();
-  function loop(now){const dt=Math.min(0.25,(now-last)/1000);last=now;if(!reduce)clock+=dt;state.money+=income()*dt*speed;state.seen=Math.max(state.seen,state.money);document.getElementById("money").textContent="CHF "+fmt(state.money);render();requestAnimationFrame(loop);}
+  let last=performance.now(),autoAcc=0;
+  function loop(now){const dt=Math.min(0.25,(now-last)/1000);last=now;if(!reduce)clock+=dt;state.money+=income()*dt*speed;state.seen=Math.max(state.seen,state.money);if(skHas('L4N2')){autoAcc+=dt;if(autoAcc>=1){autoAcc-=1;autoBuy();}}document.getElementById("money").textContent="CHF "+fmt(state.money);render();renderSB();requestAnimationFrame(loop);}
 
   document.getElementById("buySeg").addEventListener("click",e=>{const b2=e.target.closest("button");if(!b2)return;buyMode=b2.dataset.q==='max'?'max':(+b2.dataset.q);[...e.currentTarget.children].forEach(c=>c.classList.toggle("on",c===b2));renderGens();renderBoni();});
   (function(){const vEl=document.getElementById("cheatV");if(!vEl)return;let vc=0,vt=null;vEl.addEventListener("click",()=>{vc++;clearTimeout(vt);vt=setTimeout(()=>{vc=0;},1500);if(vc>=7){vc=0;state.money+=1e100;state.seen=Math.max(state.seen,state.money);state.cheated=true;save();setStory("Cheat aktiviert!","Praktisch unendliches Geld! Jetzt kannst du alle Erfolge testen. Hinweis: Dein Ranglisten-Eintrag wird ab jetzt als „Cheat – ungültig“ markiert.",svgTeleport({c:"#f9b000"}));refresh(true);checkAch();}});})();
-  document.getElementById("resetBtn").onclick=()=>{if(confirm("Spielstand wirklich zurücksetzen? (Die Rangliste bleibt erhalten.)")){try{localStorage.removeItem(KEY);}catch(e){}state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:state.name||"",goldShown:false,ach:{},cheated:false,ts:Date.now()};document.getElementById("endgame").style.display="none";document.getElementById("welcome").style.display="none";rebuildViz();refresh();renderRank();renderAch();}};
+  document.getElementById("resetBtn").onclick=()=>{if(confirm("Spielstand wirklich zurücksetzen? (Die Rangliste bleibt erhalten.)")){try{localStorage.removeItem(KEY);}catch(e){}state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:state.name||"",goldShown:false,ach:{},cheated:false,vreneli:0,skill:{},ts:Date.now()};document.getElementById("endgame").style.display="none";document.getElementById("welcome").style.display="none";rebuildViz();refresh();renderRank();renderAch();renderSB();}};
 
   window.addEventListener("resize",()=>{resize();});
   let hiddenAt=null;
   document.addEventListener("visibilitychange",()=>{
     if(document.hidden){hiddenAt=Date.now();save();}
-    else{if(hiddenAt){const el=(Date.now()-hiddenAt)/1000;hiddenAt=null;if(el>1){state.money+=income()*Math.min(el,8*3600);state.seen=Math.max(state.seen,state.money);refresh(true);}}last=performance.now();}
+    else{if(hiddenAt){const el=(Date.now()-hiddenAt)/1000;hiddenAt=null;if(el>1){state.money+=income()*offMult()*Math.min(el,offCapH()*3600);state.seen=Math.max(state.seen,state.money);refresh(true);}}last=performance.now();}
   });
   window.addEventListener("pagehide",save);
   setInterval(save,4000);
   setInterval(()=>refresh(),400);
 
-  resize();rebuildViz();refresh();renderRank();renderAch();checkAch(true);if(state.ended)showEndgame();
+  // ================= SKILLBUS (Prestige) =================
+  function skHas(id){return id==='c'||(state.skill&&state.skill[id]);}
+  function skIncomeMult(){let add=0.05;if(skHas('L0N0'))add+=0.15;if(skHas('L0N1'))add+=0.15;if(skHas('L0N2'))add+=0.5;for(let k=0;k<5;k++)if(skHas('R'+k))add+=0.08;let m=1+add;if(skHas('L0N3'))m*=2;return m;}
+  function netPer(){return skHas('L1N2')?0.27:0.18;}
+  function netDisc(){return skHas('L1N0')?0.85:1;}
+  function unitDisc(i){return (i<3&&skHas('L2N1'))?0.5:1;}
+  function offCapH(){return skHas('L4N0')?16:8;}
+  function offMult(){return skHas('L4N1')?1.5:1;}
+  function applyRunStart(){state.ep=[0,0,0,0,0,0,0,0,0,0];state.net=skHas('L1N1')?5:0;let s=0;if(skHas('L2N0'))s+=2000;if(skHas('L2N2')){s+=200000;state.ep[0]=1;state.ep[1]=1;}state.money=s;state.seen=s;}
+  function autoBuy(){for(let i=9;i>=0;i--){if((state.ep[i]>0||state.seen>=0.9*COST[i])&&state.money>=unitCost(i)){const f=state.ep[i]===0;state.money-=unitCost(i);state.ep[i]++;if(f){rebuildViz();checkAch();}return;}}}
+  function svgCoin(){return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="#f9b000" stroke="#c98d00" stroke-width="2"/><circle cx="16" cy="16" r="9" fill="none" stroke="#c98d00" stroke-width="1.2"/><text x="16" y="21" text-anchor="middle" font-size="12" font-weight="700" fill="#7a5600">V</text></svg>';}
+  const SB_L=[
+    {c:'#16c06e',nodes:[['H','Mehreinnahmen I','+15 % Einkommen',1],['H','Mehreinnahmen II','+15 % Einkommen',1],['U','Tarifreform','+50 % Einkommen',3],['S','Taktfahrplan','Einkommen ×2',9]]},
+    {c:'#2b8fe0',nodes:[['H','Günstige Trassen','Netzausbau −15 % Kosten',1],['U','Grundnetz','Netz startet auf Stufe 5',3],['S','Doppelspur','Netzstufen +50 % wirksamer',9]]},
+    {c:'#f9b000',nodes:[['H','Startkapital','Beginne mit Startgeld',1],['U','Rabatt-Beschaffung','Erste 3 Stufen −50 % Kosten',3],['S','Fliegender Start','Startgeld + Postkutsche & Tram vorab',9]]},
+    {c:'#e2453a',nodes:[['H','Kräftiges Tippen','Tippen ×2',1],['U','Goldsaison','Goldener Bus häufiger',3,1],['S','Doppel-Gold','Goldener Bus wirkt doppelt',9,1]]},
+    {c:'#a06be0',nodes:[['H','Nachtbetrieb','Offline-Bonus 8 h → 16 h',1],['U','Standby-Ertrag','Offline-Ertrag +50 %',3],['S','Beschaffungsabteilung','Auto-Käufer: kauft günstigste Stufe',10]]},
+  ];
+  const SBN=[],SBE=[],SBschl=[];
+  SBN.push({id:'c',t:'C',n:'Einsatzzentrale',e:'Start · +5 % Grundeinkommen',cost:0,ang:0,rad:0,color:'#f9b000',locked:false});
+  SB_L.forEach((L,k)=>{const base=-Math.PI/2+k*2*Math.PI/5,cnt=L.nodes.length,radii=cnt===4?[0.21,0.345,0.485,0.63]:[0.24,0.435,0.63];let prev='c';L.nodes.forEach((nd,i)=>{const id='L'+k+'N'+i;SBN.push({id,t:nd[0],n:nd[1],e:nd[2],cost:nd[3],locked:!!nd[4],ang:base,rad:radii[i],color:L.c});SBE.push([prev,id]);prev=id;if(i===cnt-1)SBschl[k]=id;});});
+  for(let k=0;k<5;k++){const base=-Math.PI/2+(k+0.5)*2*Math.PI/5,id='R'+k;SBN.push({id,t:'Ring',n:'Umsteigepunkt',e:'+8 % Einkommen',cost:2,ang:base,rad:0.63,color:'#c9a24b',locked:false});SBE.push([SBschl[k],id]);SBE.push([id,SBschl[(k+1)%5]]);}
+  const SBby={};SBN.forEach(nd=>SBby[nd.id]=nd);const SBadj={};SBN.forEach(nd=>SBadj[nd.id]=[]);SBE.forEach(([a,b])=>{SBadj[a].push(b);SBadj[b].push(a);});
+  function sbAvail(id){if(skHas(id))return false;const nd=SBby[id];if(nd.locked)return false;return SBadj[id].some(x=>skHas(x));}
+  const sbcv=document.getElementById('sb'),sbtx=sbcv?sbcv.getContext('2d'):null,sbtip=document.getElementById('sbtip');
+  let sbW=0,sbH=0,sbHover=null;
+  function sbR(nd){return nd.t==='C'?18:nd.t==='S'?15:nd.t==='U'?11:nd.t==='Ring'?8:9;}
+  function renderSB(){if(!sbtx)return;const cssW=sbcv.parentElement.clientWidth;if(!cssW)return;const cssH=Math.min(cssW,540);if(cssW!==sbW){sbW=cssW;sbH=cssH;sbcv.style.height=cssH+'px';sbcv.width=Math.round(cssW*dpr);sbcv.height=Math.round(cssH*dpr);const cx=cssW/2,cy=cssH/2,R=Math.min(cssW,cssH)/2*0.84;SBN.forEach(nd=>{nd.x=cx+Math.cos(nd.ang)*nd.rad*R;nd.y=cy+Math.sin(nd.ang)*nd.rad*R;});}
+    const x=sbtx;x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,sbW,sbH);
+    SBE.forEach(([a,b])=>{const A=SBby[a],B=SBby[b],on=skHas(a)&&skHas(b);x.strokeStyle=on?'rgba(249,176,0,.55)':'rgba(255,255,255,.10)';x.lineWidth=on?3:2;x.beginPath();x.moveTo(A.x,A.y);x.lineTo(B.x,B.y);x.stroke();});
+    SBN.forEach(nd=>{const r=sbR(nd),un=skHas(nd.id),av=sbAvail(nd.id);
+      if(av&&!reduce){const p=(Math.sin(clock*3)+1)/2;x.beginPath();x.arc(nd.x,nd.y,r+6+p*4,0,7);x.fillStyle='rgba(249,176,0,'+(0.10+p*0.12)+')';x.fill();}
+      x.beginPath();x.arc(nd.x,nd.y,r,0,7);
+      if(un){x.fillStyle=nd.color;x.fill();x.lineWidth=2.5;x.strokeStyle='#fff';x.stroke();}
+      else{x.fillStyle=nd.locked?'#141c26':'#0d2540';x.fill();x.lineWidth=2.5;x.strokeStyle=av?nd.color:(nd.locked?'rgba(255,255,255,.10)':'rgba(255,255,255,.18)');x.stroke();}
+      if(nd.t==='S'||nd.t==='C'){x.beginPath();x.arc(nd.x,nd.y,r*0.42,0,7);x.fillStyle=un?'rgba(7,22,39,.85)':'rgba(255,255,255,.2)';x.fill();}});
+    x.textAlign='center';x.font='600 10.5px '+getComputedStyle(document.body).fontFamily;
+    SBN.forEach(nd=>{if(nd.t!=='S'&&nd.t!=='C')return;x.fillStyle=skHas(nd.id)?'#fff':'rgba(234,242,250,.6)';const dy=nd.y>sbH/2?(sbR(nd)+13):(-sbR(nd)-7);x.fillText(nd.n,nd.x,nd.y+dy);});}
+  function sbHit(mx,my){let best=null,bd=1e9;SBN.forEach(nd=>{const d=Math.hypot(mx-nd.x,my-nd.y);if(d<sbR(nd)+7&&d<bd){bd=d;best=nd;}});return best;}
+  if(sbcv){
+    sbcv.addEventListener('mousemove',ev=>{const rc=sbcv.getBoundingClientRect(),nd=sbHit(ev.clientX-rc.left,ev.clientY-rc.top);sbHover=nd?nd.id:null;if(nd&&sbtip){const un=skHas(nd.id),av=sbAvail(nd.id);const st=un?'<span class="st" style="color:#16c06e">✓ Freigeschaltet</span>':(nd.locked?'<span class="st" style="color:var(--muted-2)">bald verfügbar (mit dem Goldenen Bus)</span>':(av?'<span class="st" style="color:var(--zvb-yellow)">Verfügbar — klicken</span>':'<span class="st" style="color:var(--muted-2)">Gesperrt (Nachbar zuerst)</span>'));sbtip.innerHTML='<div class="t">'+nd.n+'</div><div class="e">'+nd.e+'</div>'+(nd.cost>0?'<div class="c">Kosten: '+nd.cost+' Vreneli</div>':'')+st;sbtip.style.opacity='1';let tx=nd.x+16,ty=nd.y+8;if(tx>sbW-200)tx=nd.x-200;if(ty>sbH-70)ty=nd.y-70;sbtip.style.left=tx+'px';sbtip.style.top=ty+'px';sbcv.style.cursor=av?'pointer':'default';}else if(sbtip){sbtip.style.opacity='0';sbcv.style.cursor='default';}});
+    sbcv.addEventListener('mouseleave',()=>{if(sbtip)sbtip.style.opacity='0';sbHover=null;});
+    sbcv.addEventListener('click',ev=>{const rc=sbcv.getBoundingClientRect(),nd=sbHit(ev.clientX-rc.left,ev.clientY-rc.top);if(!nd||!sbAvail(nd.id))return;if((state.vreneli||0)>=nd.cost){state.vreneli-=nd.cost;if(!state.skill)state.skill={};state.skill[nd.id]=true;save();refresh(true);}else{const el=document.getElementById('sbVreneli');if(el){el.style.color='#e2453a';setTimeout(()=>el.style.color='var(--zvb-yellow)',350);}}});
+  }
+
+  resize();rebuildViz();refresh();renderRank();renderAch();checkAch(true);renderSB();if(state.ended)showEndgame();
   requestAnimationFrame(loop);
 })();
 </script>
