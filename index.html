@@ -89,6 +89,13 @@
   .tip .t{font-weight:700;font-size:13px;margin-bottom:2px}.tip .e{color:var(--muted)}.tip .c{font-family:var(--mono);color:var(--zvb-yellow);margin-top:3px}.tip .st{margin-top:3px;font-size:11px;font-weight:700}
   .autotog{margin-left:auto;border:1px solid var(--edge-strong);background:var(--panel);color:var(--muted);font-family:var(--font);font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:8px;cursor:pointer}
   .autotog.on{background:var(--zvb-green);color:#04231a;border-color:#0a7a45}
+  .statbar{display:flex;justify-content:flex-end;margin-top:12px}
+  .stats-panel{background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:16px;margin-top:10px}
+  .stats-h{font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:12px}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .stat-card{background:var(--stage-2);border-radius:10px;padding:11px 13px}
+  .stat-card .sk{font-size:12px;color:var(--muted);margin-bottom:3px}
+  .stat-card .sv{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
   .rankctrl{display:flex;gap:8px;margin-bottom:8px}
   .rankctrl input{flex:1;min-width:0;background:var(--stage);border:1px solid var(--edge-strong);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:14px}
   .rankctrl input:focus-visible{outline:3px solid var(--zvb-yellow);outline-offset:2px}
@@ -119,6 +126,9 @@
 
 <div class="wrap">
   <h2 class="sr-only">Spielbares ZVB-Idle-Game „Verkehrs-Imperium Zug": tippe auf die Karte, um Fahrgäste zu befördern, kaufe Fahrzeuge, baue das Liniennetz aus und steige durch die ZVB-Epochen auf.</h2>
+
+  <div class="statbar"><button class="btn" id="statsBtn">Statistik</button></div>
+  <div id="statsPanel" class="stats-panel" style="display:none"></div>
 
   <div class="welcome" id="welcome"></div>
 
@@ -194,6 +204,8 @@
   ];
   const COST=[25,1000,12000,220000,3.9e6,80e6,1.9e9,52e9,1.8e12,66e12];
   const INC =[0.6,7,80,1000,11700,173000,2.85e6,57e6,1.42e9,43e9];
+  const PAX =[0.2,1,2,4,5,6,9,15,25,60];
+  const KM  =[0.003,0.005,0.007,0.008,0.009,0.010,0.011,0.02,0.05,0];
   const GROW=1.07;
   const ships=[{n:"MS Zug",cost:1500000},{n:"MS Rigi",cost:4000000},{n:"MB Ägeri",cost:44000000,aeg:true},{n:"E-MS Ägerisee",cost:210000000,aeg:true,e:true}];
   const shipFacts=["MS Zug — Kursschiff auf dem Zugersee (+10 % Fahrgäste).","MS Rigi — zweites Zugersee-Kursschiff (+10 %).","MB Ägeri — Motorboot auf dem Ägerisee, ~50 Plätze (+10 %).","E-MS Ägerisee — 24 m, 130 Plätze, seit Mai 2025 elektrisch (+10 %)."];
@@ -227,7 +239,7 @@
 
   // ---- state ----
   const KEY="vimpZug_v1";
-  let state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:"",goldShown:false,ach:{},cheated:false,vreneli:0,skill:{},autoOn:true,boostUntil:0,boostMult:7,ts:Date.now()};
+  let state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:"",goldShown:false,ach:{},cheated:false,vreneli:0,skill:{},autoOn:true,boostUntil:0,boostMult:7,playSec:0,totalPax:0,totalKm:0,totalCHF:0,ts:Date.now()};
   let speed=1, buyMode=1, veh=[], clock=0, pulses=[], floats=[];
   try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);Object.assign(state,s);}}catch(e){}
 
@@ -235,6 +247,8 @@
   function fullyBuilt(){return state.ships>=4&&state.berg&&state.net>=50;}
   function gbMult(){return (state.boostUntil&&Date.now()<state.boostUntil)?(state.boostMult||7):1;}
   function income(){let s=0;for(let i=0;i<10;i++)s+=state.ep[i]*INC[i];return s*boost()*skIncomeMult()*gbMult();}
+  function accrue(dt,mm){const inc=income()*dt*(mm||1);state.money+=inc;state.totalCHF=(state.totalCHF||0)+inc;state.seen=Math.max(state.seen,state.money);let px=0,km=0;for(let i=0;i<10;i++){px+=state.ep[i]*PAX[i];km+=state.ep[i]*KM[i];}state.totalPax=(state.totalPax||0)+px*dt;state.totalKm=(state.totalKm||0)+km*dt;}
+  function fmtTime(s){s=Math.floor(s||0);const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);if(h>=1)return h+" h "+m+" min";if(m>=1)return m+" min";return s+" s";}
   function unitCost(i){return Math.round(COST[i]*Math.pow(GROW,state.ep[i])*unitDisc(i));}
   function costFor(i,k){const c=state.ep[i];return COST[i]*Math.pow(GROW,c)*(Math.pow(GROW,k)-1)/(GROW-1)*unitDisc(i);}
   function maxAff(i){const base=COST[i]*Math.pow(GROW,state.ep[i]);const ratio=1+state.money*(GROW-1)/base;return ratio<=1?0:Math.floor(Math.log(ratio)/Math.log(GROW));}
@@ -322,7 +336,7 @@
 
   // ---- earn / tap ----
   function addFloat(x,y,txt){const s=document.createElement("div");s.className="float";s.textContent=txt;s.style.left=x+"px";s.style.top=y+"px";document.getElementById("stage").appendChild(s);setTimeout(()=>s.remove(),800);}
-  function tap(ev){const r=cv.getBoundingClientRect();const cssx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left;const cssy=(ev.touches?ev.touches[0].clientY:ev.clientY)-r.top;if(gbActive){const p=gbPos();if(Math.hypot(cssx-p.nx*r.width,cssy-p.ny*r.height)<Math.max(26,r.width*0.07)){goldenClick(cssx,cssy);return;}}const v=tapValue();state.money+=v;state.seen=Math.max(state.seen,state.money);pulses.push({x:cssx*dpr,y:cssy*dpr,r:4*dpr,a:0.8});addFloat(cssx,cssy,"+CHF "+fmt(v));refresh();}
+  function tap(ev){const r=cv.getBoundingClientRect();const cssx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left;const cssy=(ev.touches?ev.touches[0].clientY:ev.clientY)-r.top;if(gbActive){const p=gbPos();if(Math.hypot(cssx-p.nx*r.width,cssy-p.ny*r.height)<Math.max(26,r.width*0.07)){goldenClick(cssx,cssy);return;}}const v=tapValue();state.money+=v;state.totalCHF=(state.totalCHF||0)+v;state.seen=Math.max(state.seen,state.money);pulses.push({x:cssx*dpr,y:cssy*dpr,r:4*dpr,a:0.8});addFloat(cssx,cssy,"+CHF "+fmt(v));refresh();}
   document.getElementById("stage").addEventListener("click",tap);
 
   // ---- UI ----
@@ -368,6 +382,17 @@
     const btn=document.getElementById("fpwBtn");if(btn)btn.onclick=prestige;
   }
   function updateAutoBtn(){const b=document.getElementById("autoBtn");if(!b)return;if(skHas('L4N2')){b.style.display="inline-block";const on=state.autoOn!==false;b.className="autotog"+(on?" on":"");b.textContent=on?"Auto-Kauf: AN":"Auto-Kauf: AUS";}else b.style.display="none";}
+  function renderStats(){const box=document.getElementById("statsPanel");if(!box)return;const g=Math.floor(Math.sqrt(state.seen/5e12));
+    function card(k,v,gold){return '<div class="stat-card"><div class="sk">'+k+'</div><div class="sv"'+(gold?' style="color:var(--zvb-yellow)"':'')+'>'+v+'</div></div>';}
+    box.innerHTML='<div class="stats-h">Statistik</div><div class="stats-grid">'+
+      card("Spielzeit gesamt",fmtTime(state.playSec))+
+      card("Fahrgäste befördert",fmt(state.totalPax||0))+
+      card("Umsatz gesamt","CHF "+fmt(state.totalCHF||0))+
+      card("Gefahrene km",fmt(state.totalKm||0))+
+      card("Fahrplanwechsel",(state.fpw||0)+" / 3")+
+      card("Vreneli aktuell",fmtV(state.vreneli),true)+
+      card("Vreneli bei Fahrplanwechsel jetzt","+"+fmtV(g),true)+
+    '</div>';}
   function refresh(full){
     if(fullyBuilt()&&!state.goldShown){state.goldShown=true;setStory("Netz komplett ausgebaut!","Alle 4 Schiffe, die Zugerbergbahn und der maximale Netzausbau (×10) sind erreicht — das ganze Liniennetz erstrahlt jetzt in Gold.",svgTeleport({c:"#f9b000"}));}
     document.getElementById("money").textContent="CHF "+fmt(state.money);
@@ -381,6 +406,7 @@
     document.getElementById("stBoost").textContent="×"+boost().toFixed(1);
     document.getElementById("tapHint").style.display=to>=0?"none":"block";
     const vr=document.getElementById("sbVreneli");if(vr)vr.textContent=fmtV(state.vreneli);updateAutoBtn();
+    const sp=document.getElementById("statsPanel");if(sp&&sp.style.display!=="none")renderStats();
     if(full!==false){renderGens();renderBoni();renderPrestige();}
   }
 
@@ -399,21 +425,22 @@
 
   // ---- offline / save / loop ----
   function save(){try{state.ts=Date.now();localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
-  function offline(){const now=Date.now();let dt=(now-(state.ts||now))/1000;if(dt>10){dt=Math.min(dt,offCapH()*3600);const earned=income()*dt*offMult();if(earned>0){state.money+=earned;state.seen=Math.max(state.seen,state.money);const w=document.getElementById("welcome");const hrs=dt/3600;w.style.display="block";w.innerHTML=`Willkommen zurück! Deine Linien haben in ${hrs>=1?hrs.toFixed(1)+" h":Math.round(dt/60)+" min"} Abwesenheit <b>CHF ${fmt(earned)}</b> verdient.`;}}}
+  function offline(){const now=Date.now();let dt=(now-(state.ts||now))/1000;if(dt>10){dt=Math.min(dt,offCapH()*3600);const before=state.money;accrue(dt,offMult());const earned=state.money-before;if(earned>0){const w=document.getElementById("welcome");const hrs=dt/3600;w.style.display="block";w.innerHTML=`Willkommen zurück! Deine Linien haben in ${hrs>=1?hrs.toFixed(1)+" h":Math.round(dt/60)+" min"} Abwesenheit <b>CHF ${fmt(earned)}</b> verdient.`;}}}
   offline();
   let last=performance.now(),autoAcc=0;
-  function loop(now){const dt=Math.min(0.25,(now-last)/1000);last=now;if(!reduce)clock+=dt;state.money+=income()*dt*speed;state.seen=Math.max(state.seen,state.money);if(skHas('L4N2')&&state.autoOn!==false){autoAcc+=dt;if(autoAcc>=1){autoAcc-=1;autoBuy();}}tickGB();document.getElementById("money").textContent="CHF "+fmt(state.money);render();drawGB();renderSB();updateGBBadge();requestAnimationFrame(loop);}
+  function loop(now){const dt=Math.min(0.25,(now-last)/1000);last=now;if(!reduce)clock+=dt;accrue(dt);state.playSec=(state.playSec||0)+dt;if(skHas('L4N2')&&state.autoOn!==false){autoAcc+=dt;if(autoAcc>=1){autoAcc-=1;autoBuy();}}tickGB();document.getElementById("money").textContent="CHF "+fmt(state.money);render();drawGB();renderSB();updateGBBadge();requestAnimationFrame(loop);}
 
   document.getElementById("buySeg").addEventListener("click",e=>{const b2=e.target.closest("button");if(!b2)return;buyMode=b2.dataset.q==='max'?'max':(+b2.dataset.q);[...e.currentTarget.children].forEach(c=>c.classList.toggle("on",c===b2));renderGens();renderBoni();});
   {const ab=document.getElementById("autoBtn");if(ab)ab.onclick=()=>{state.autoOn=(state.autoOn===false);save();updateAutoBtn();};}
+  {const sb2=document.getElementById("statsBtn");if(sb2)sb2.onclick=()=>{const p=document.getElementById("statsPanel");if(p.style.display==="none"){renderStats();p.style.display="block";sb2.textContent="Statistik schliessen";}else{p.style.display="none";sb2.textContent="Statistik";}};}
   (function(){const vEl=document.getElementById("cheatV");if(!vEl)return;let vc=0,vt=null;vEl.addEventListener("click",()=>{vc++;clearTimeout(vt);vt=setTimeout(()=>{vc=0;},1500);if(vc>=7){vc=0;state.money+=1e100;state.seen=Math.max(state.seen,state.money);state.cheated=true;save();setStory("Cheat aktiviert!","Praktisch unendliches Geld! Jetzt kannst du alle Erfolge testen. Hinweis: Dein Ranglisten-Eintrag wird ab jetzt als „Cheat – ungültig“ markiert.",svgTeleport({c:"#f9b000"}));refresh(true);checkAch();}});})();
-  document.getElementById("resetBtn").onclick=()=>{if(confirm("Spielstand wirklich zurücksetzen? (Die Rangliste bleibt erhalten.)")){try{localStorage.removeItem(KEY);}catch(e){}state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:state.name||"",goldShown:false,ach:{},cheated:false,vreneli:0,skill:{},autoOn:true,boostUntil:0,boostMult:7,ts:Date.now()};document.getElementById("endgame").style.display="none";document.getElementById("welcome").style.display="none";rebuildViz();refresh();renderRank();renderAch();renderSB();}};
+  document.getElementById("resetBtn").onclick=()=>{if(confirm("Spielstand wirklich zurücksetzen? (Die Rangliste bleibt erhalten.)")){try{localStorage.removeItem(KEY);}catch(e){}state={money:0,seen:0,ep:[0,0,0,0,0,0,0,0,0,0],net:0,ships:0,berg:false,fpw:0,ended:false,name:state.name||"",goldShown:false,ach:{},cheated:false,vreneli:0,skill:{},autoOn:true,boostUntil:0,boostMult:7,playSec:0,totalPax:0,totalKm:0,totalCHF:0,ts:Date.now()};document.getElementById("endgame").style.display="none";document.getElementById("welcome").style.display="none";rebuildViz();refresh();renderRank();renderAch();renderSB();}};
 
   window.addEventListener("resize",()=>{resize();});
   let hiddenAt=null;
   document.addEventListener("visibilitychange",()=>{
     if(document.hidden){hiddenAt=Date.now();save();}
-    else{if(hiddenAt){const el=(Date.now()-hiddenAt)/1000;hiddenAt=null;if(el>1){state.money+=income()*offMult()*Math.min(el,offCapH()*3600);state.seen=Math.max(state.seen,state.money);refresh(true);}}last=performance.now();}
+    else{if(hiddenAt){const el=(Date.now()-hiddenAt)/1000;hiddenAt=null;if(el>1){accrue(Math.min(el,offCapH()*3600),offMult());refresh(true);}}last=performance.now();}
   });
   window.addEventListener("pagehide",save);
   setInterval(save,4000);
@@ -472,7 +499,7 @@
   function gbPos(){const t=clock-gbActive.born;let nx=gbActive.nx0+gbActive.vx*t;nx=Math.max(0.06,Math.min(0.94,nx));const ny=gbActive.ny0+Math.sin(t*1.1)*0.02;return{nx,ny};}
   function tickGB(){if(topOwned()<0)return;if(!gbActive){if(gbNext===0)gbNext=clock+gbInterval();if(clock>=gbNext&&!document.hidden)spawnGB();}else if(clock-gbActive.born>gbActive.dur){gbActive=null;gbNext=clock+gbInterval();}}
   function drawGB(){if(!gbActive)return;const p=gbPos(),age=clock-gbActive.born,a=Math.max(0,Math.min(1,age/1.5)*Math.min(1,(gbActive.dur-age)/1.5)),img=goldBusImg;if(!(img.complete&&img.naturalWidth))return;const x=p.nx*W,y=p.ny*H,h=26*dpr,w=h*(img.naturalWidth/img.naturalHeight);ctx.save();ctx.globalAlpha=a;ctx.shadowColor='#f9b000';ctx.shadowBlur=18*dpr;ctx.translate(x,y);if(gbActive.vx<0)ctx.scale(-1,1);ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore();ctx.globalAlpha=1;}
-  function goldenClick(cssx,cssy){const dbl=skHas('L3N2');if(Math.random()<0.65){state.boostMult=dbl?14:7;state.boostUntil=Date.now()+30000;addFloat(cssx,cssy,'×'+state.boostMult+' Ansturm!');}else{const amt=income()*(dbl?1800:900);state.money+=amt;state.seen=Math.max(state.seen,state.money);addFloat(cssx,cssy,'+CHF '+fmt(amt));}gbActive=null;gbNext=clock+gbInterval();pulses.push({x:cssx*dpr,y:cssy*dpr,r:6*dpr,a:0.9});refresh();}
+  function goldenClick(cssx,cssy){const dbl=skHas('L3N2');if(Math.random()<0.65){state.boostMult=dbl?14:7;state.boostUntil=Date.now()+30000;addFloat(cssx,cssy,'×'+state.boostMult+' Ansturm!');}else{const amt=income()*(dbl?1800:900);state.money+=amt;state.totalCHF=(state.totalCHF||0)+amt;state.seen=Math.max(state.seen,state.money);addFloat(cssx,cssy,'+CHF '+fmt(amt));}gbActive=null;gbNext=clock+gbInterval();pulses.push({x:cssx*dpr,y:cssy*dpr,r:6*dpr,a:0.9});refresh();}
   function updateGBBadge(){const el=document.getElementById('gbBadge');if(!el)return;const bu=state.boostUntil||0;if(bu>Date.now()){el.style.display='block';el.textContent='×'+(state.boostMult||7)+' Ansturm · '+Math.ceil((bu-Date.now())/1000)+' s';}else if(el.style.display!=='none')el.style.display='none';}
 
   resize();rebuildViz();refresh();renderRank();renderAch();checkAch(true);renderSB();if(state.ended)showEndgame();
