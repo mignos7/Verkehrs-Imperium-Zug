@@ -52,7 +52,8 @@
   .row .nm{font-size:14.5px;font-weight:700;line-height:1.2}
   .row .meta{font-size:12px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
   .row .cnt{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--ink);min-width:34px;text-align:center}
-  .buy{appearance:none;border:1px solid var(--edge-strong);background:var(--zvb-blue-deep);color:#fff;font-family:var(--font);font-weight:700;font-size:13px;padding:10px 13px;border-radius:10px;cursor:pointer;min-width:118px;text-align:center;transition:background .12s,transform .05s}
+  .buy{appearance:none;border:1px solid var(--edge-strong);background:var(--zvb-blue-deep);color:#fff;font-family:var(--font);font-weight:700;font-size:13px;padding:11px 14px;border-radius:10px;cursor:pointer;min-width:118px;min-height:46px;text-align:center;transition:background .12s,transform .05s;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+  .buy:active:not(:disabled){transform:scale(.96);background:var(--zvb-blue-2)}
   .buy .c{display:block;font-family:var(--mono);font-size:12px;font-weight:600;color:#bcd8f2;margin-top:2px}
   .buy:hover:not(:disabled){background:var(--zvb-blue-2)}
   .buy:active:not(:disabled){transform:scale(.97)}
@@ -349,32 +350,27 @@
 
   function b(label,cost,cls,dis){return `<button class="buy ${cls||''}" ${dis?"disabled":""}>${label}<span class="c">CHF ${fmt(cost)}</span></button>`;}
 
-  function renderGens(){
-    const box=document.getElementById("gens");let html="";
-    let firstLocked=-1;
-    for(let i=0;i<10;i++){const shown=state.ep[i]>0||state.seen>=0.9*COST[i];if(!shown){firstLocked=i;break;}}
-    for(let i=0;i<10;i++){
-      const e=eras[i],shown=state.ep[i]>0||state.seen>=0.9*COST[i];
-      if(shown){const mx=maxAff(i);const k=buyMode==='max'?mx:buyMode;const c=costFor(i,Math.max(1,k));const aff=buyMode==='max'?mx>=1:state.money>=c;const qlab=buyMode==='max'?("×"+mx):("×"+buyMode);const contrib=state.ep[i]*INC[i]*boost();
-        html+=`<div class="row" data-buy="${i}"><div class="ic">${svgFor(e)}</div><div class="mid"><div class="nm">${e.n} <span style="color:var(--muted);font-weight:400;font-size:12px">· ${e.y}</span></div><div class="meta">${fmt(INC[i])} /s je Fahrzeug${state.ep[i]>0?" · liefert "+fmt(contrib)+" /s":""}</div></div><div class="cnt">${state.ep[i]}</div><button class="buy" data-buy="${i}" ${aff?"":"disabled"}>Kaufen ${qlab}<span class="c">CHF ${fmt(c)}</span></button></div>`;
-      } else if(i===firstLocked){
-        html+=`<div class="row teaser"><div class="ic">${svgFor(e)}</div><div class="mid"><div class="nm">${e.n}</div><div class="meta tflag">Nächste Stufe · verborgen bis ~10 % erreicht</div></div><div class="cnt">?</div><button class="buy" disabled>Gesperrt<span class="c">CHF ${fmt(COST[i])}</span></button></div>`;
-        break;
-      } else break;
+  let grRows=[],holdT=null;
+  function gensStop(){if(holdT){clearTimeout(holdT);holdT=null;}}
+  function gensDown(ev){const bt=ev.target.closest("button[data-buy]");if(!bt||bt.disabled)return;ev.preventDefault();const i=+bt.dataset.buy;buyEpoch(i);let delay=340;const rep=()=>{const bb=grRows[i]&&grRows[i].querySelector(".buy");if(!bb||bb.disabled){gensStop();return;}buyEpoch(i);delay=Math.max(70,delay*0.82);holdT=setTimeout(rep,delay);};gensStop();holdT=setTimeout(rep,340);}
+  function buildGens(){const box=document.getElementById("gens");box.innerHTML="";grRows=[];for(let i=0;i<10;i++){const e=eras[i];const row=document.createElement("div");row.className="row";row.style.display="none";row.innerHTML='<div class="ic">'+svgFor(e)+'</div><div class="mid"><div class="nm">'+e.n+' <span style="color:var(--muted);font-weight:400;font-size:12px">· '+e.y+'</span></div><div class="meta"></div></div><div class="cnt"></div><button class="buy" data-buy="'+i+'"></button>';box.appendChild(row);grRows.push(row);}box.addEventListener("pointerdown",gensDown);box.addEventListener("pointercancel",gensStop);box.addEventListener("pointerleave",gensStop);window.addEventListener("pointerup",gensStop);}
+  function renderGens(){if(!grRows.length)return;let firstLocked=-1;for(let i=0;i<10;i++){if(!(state.ep[i]>0||state.seen>=0.9*COST[i])){firstLocked=i;break;}}
+    for(let i=0;i<10;i++){const row=grRows[i],meta=row.querySelector(".meta"),cnt=row.querySelector(".cnt"),buy=row.querySelector(".buy");const shown=state.ep[i]>0||state.seen>=0.9*COST[i];
+      if(shown){row.style.display="";row.className="row";const mx=maxAff(i),k=buyMode==='max'?mx:buyMode,c=costFor(i,Math.max(1,k)),aff=buyMode==='max'?mx>=1:state.money>=c,qlab=buyMode==='max'?("×"+mx):("×"+buyMode),contrib=state.ep[i]*INC[i]*boost();
+        meta.innerHTML=fmt(INC[i])+" /s je Fahrzeug"+(state.ep[i]>0?" · liefert "+fmt(contrib)+" /s":"");cnt.textContent=state.ep[i];buy.disabled=!aff;buy.innerHTML="Kaufen "+qlab+'<span class="c">CHF '+fmt(c)+'</span>';
+      } else if(i===firstLocked){row.style.display="";row.className="row teaser";meta.innerHTML='<span class="tflag">Nächste Stufe · verborgen bis ~10 % erreicht</span>';cnt.textContent="?";buy.disabled=true;buy.innerHTML='Gesperrt<span class="c">CHF '+fmt(COST[i])+'</span>';for(let j=i+1;j<10;j++)grRows[j].style.display="none";return;
+      } else {row.style.display="none";}
     }
-    box.innerHTML=html;
-    box.querySelectorAll("button[data-buy]").forEach(bt=>bt.onclick=ev=>{ev.stopPropagation();buyEpoch(+bt.dataset.buy);});
   }
-  function renderBoni(){
-    const box=document.getElementById("boni");
-    let shipRow="";for(let i=0;i<4;i++){shipRow+=`<div class="ship ${i<state.ships?'own':''}">${svgShip(ships[i])}<div class="sn">${ships[i].n}</div></div>`;}
-    box.innerHTML=
-      `<div class="row"><div class="mid"><div class="nm">Netz ausbauen — neue Linie</div><div class="meta">Stufe ${state.net}/50 · boostet ALLES ×${(1+0.18*state.net).toFixed(1)}${state.net<50?" → nächste ×"+(1+0.18*(state.net+1)).toFixed(1):" · Maximum erreicht"}</div></div>${state.net>=50?'<span style="color:var(--zvb-yellow);font-weight:700;font-size:13px">max ×10</span>':b("＋ Linie bauen ×"+netBuyQty(),netCostFor(Math.max(1,netBuyQty())),"gold",netBuyQty()<1||state.money<netCostFor(Math.max(1,netBuyQty())))}</div>`+
-      `<div class="row"><div class="mid"><div class="nm">Zugerbergbahn ${state.berg?"· ✓ in Betrieb":""}</div><div class="meta">einmalig · +20 % auf alles</div></div>${state.berg?'<span style="color:var(--zvb-green);font-weight:700;font-size:13px">gekauft</span>':b("Kaufen · +20 %",bergCost,"green",state.money<bergCost)}</div>`+
-      `<div class="row"><div class="mid"><div class="nm">Schifffahrt · ${state.ships}/4</div><div class="meta">+10 % Fahrgäste je Schiff</div><div class="ships">${shipRow}</div></div>${state.ships>=4?'<span style="color:var(--zvb-green);font-weight:700;font-size:13px">komplett</span>':b("＋ "+ships[state.ships].n,ships[state.ships].cost,"green",state.money<ships[state.ships].cost)}</div>`;
-    const bt=box.children;bt[0].querySelector("button")&&(bt[0].querySelector("button").onclick=buyNet);
-    const bb=bt[1].querySelector("button");if(bb)bb.onclick=buyBerg;
-    const bs=bt[2].querySelector("button");if(bs)bs.onclick=buyShip;
+  function buildBoni(){const box=document.getElementById("boni");box.innerHTML='<div class="row"><div class="mid"><div class="nm">Netz ausbauen — neue Linie</div><div class="meta" id="bmNet"></div></div><button class="buy gold" data-boni="net" id="bbNet"></button></div><div class="row"><div class="mid"><div class="nm">Zugerbergbahn</div><div class="meta">einmalig · +20 % auf alles</div></div><button class="buy green" data-boni="berg" id="bbBerg"></button></div><div class="row"><div class="mid"><div class="nm" id="bnShip">Schifffahrt</div><div class="meta">+10 % Fahrgäste je Schiff</div><div class="ships" id="bShips"></div></div><button class="buy green" data-boni="ship" id="bbShip"></button></div>';box.addEventListener("click",boniClick);}
+  function boniClick(ev){const bt=ev.target.closest("button[data-boni]");if(!bt||bt.disabled)return;const t=bt.dataset.boni;if(t==="net")buyNet();else if(t==="berg")buyBerg();else if(t==="ship")buyShip();}
+  function renderBoni(){const nm=document.getElementById("bmNet");if(!nm)return;const bn=document.getElementById("bbNet");
+    nm.innerHTML="Stufe "+state.net+"/50 · boostet ALLES ×"+(1+netPer()*state.net).toFixed(1)+(state.net<50?" → nächste ×"+(1+netPer()*(state.net+1)).toFixed(1):" · Maximum erreicht");
+    if(state.net>=50){bn.disabled=true;bn.innerHTML='max ×10';}else{const k=netBuyQty(),c=netCostFor(Math.max(1,k));bn.disabled=(k<1||state.money<c);bn.innerHTML="＋ Linie bauen ×"+k+'<span class="c">CHF '+fmt(c)+'</span>';}
+    document.getElementById("bnShip").textContent="Schifffahrt · "+state.ships+"/4";
+    const bb=document.getElementById("bbBerg");if(state.berg){bb.disabled=true;bb.innerHTML='✓ gekauft';}else{bb.disabled=state.money<bergCost;bb.innerHTML='Kaufen · +20 %<span class="c">CHF '+fmt(bergCost)+'</span>';}
+    let sr="";for(let i=0;i<4;i++){sr+='<div class="ship '+(i<state.ships?'own':'')+'">'+svgShip(ships[i])+'<div class="sn">'+ships[i].n+'</div></div>';}document.getElementById("bShips").innerHTML=sr;
+    const bs=document.getElementById("bbShip");if(state.ships>=4){bs.disabled=true;bs.innerHTML='komplett';}else{bs.disabled=state.money<ships[state.ships].cost;bs.innerHTML="＋ "+ships[state.ships].n+'<span class="c">CHF '+fmt(ships[state.ships].cost)+'</span>';}
   }
   function renderPrestige(){
     const box=document.getElementById("prestige");const can=topOwned()>=9&&!state.ended;const g=Math.floor(Math.sqrt(state.seen/5e12));
@@ -502,7 +498,7 @@
   function goldenClick(cssx,cssy){const dbl=skHas('L3N2');if(Math.random()<0.65){state.boostMult=dbl?14:7;state.boostUntil=Date.now()+30000;addFloat(cssx,cssy,'×'+state.boostMult+' Ansturm!');}else{const amt=income()*(dbl?1800:900);state.money+=amt;state.totalCHF=(state.totalCHF||0)+amt;state.seen=Math.max(state.seen,state.money);addFloat(cssx,cssy,'+CHF '+fmt(amt));}gbActive=null;gbNext=clock+gbInterval();pulses.push({x:cssx*dpr,y:cssy*dpr,r:6*dpr,a:0.9});refresh();}
   function updateGBBadge(){const el=document.getElementById('gbBadge');if(!el)return;const bu=state.boostUntil||0;if(bu>Date.now()){el.style.display='block';el.textContent='×'+(state.boostMult||7)+' Ansturm · '+Math.ceil((bu-Date.now())/1000)+' s';}else if(el.style.display!=='none')el.style.display='none';}
 
-  resize();rebuildViz();refresh();renderRank();renderAch();checkAch(true);renderSB();if(state.ended)showEndgame();
+  buildGens();buildBoni();resize();rebuildViz();refresh();renderRank();renderAch();checkAch(true);renderSB();if(state.ended)showEndgame();
   requestAnimationFrame(loop);
 })();
 </script>
